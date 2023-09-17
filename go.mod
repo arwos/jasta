@@ -1,0 +1,16 @@
+module github.com/osspkg/jasta
+
+go 1.20
+
+require github.com/osspkg/goppy v0.12.10
+
+require (
+	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/osspkg/go-algorithms v1.2.6 // indirect
+	github.com/osspkg/go-sdk v1.3.6 // indirect
+	github.com/osspkg/go-static v1.3.2 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
