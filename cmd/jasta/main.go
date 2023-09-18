@@ -8,6 +8,7 @@ package main
 import (
 	"github.com/osspkg/goppy"
 	"github.com/osspkg/goppy/plugins/web"
+	"github.com/osspkg/jasta/internal/command"
 	"github.com/osspkg/jasta/internal/jasta"
 )
 
@@ -19,5 +20,6 @@ func main() {
 	app.Plugins(
 		jasta.Plugins...,
 	)
+	app.Command("nginx", command.InstallNginxConfig)
 	app.Run()
 }

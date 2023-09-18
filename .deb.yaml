@@ -1,0 +1,27 @@
+package: jasta
+source: jasta
+version: 1:0.0.1
+architecture:
+    - amd64
+maintainer: The OSSPkg Team <github@osspkg.com>
+homepage: https://jasta.osspkg.com/
+description:
+    - Gateway for Static Website
+section: utils
+priority: optional
+control:
+    depends:
+        - systemd
+        - ca-certificates
+        - nginx
+    conffiles:
+        - /etc/jasta/config.yaml
+    preinst: scripts/preinst.sh
+    postinst: scripts/postinst.sh
+    prerm: scripts/prerm.sh
+    postrm: scripts/postrm.sh
+data:
+    bin/jasta: build/jasta_%arch%
+    etc/jasta/config.yaml: config/config.yaml
+    etc/jasta/websites/localhost.yaml: config/websites/localhost.yaml
+    etc/systemd/system/jasta.service: init/jasta.service

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-
-if ! [ -d /var/lib/jasta/ ]; then
-    mkdir /var/lib/jasta
+if [ -f "/var/log/jasta.log" ]; then
+    touch /var/log/jasta.log
+    chown www-data:www-data /var/log/jasta.log
 fi
 
 if [ -f "/etc/systemd/system/jasta.service" ]; then

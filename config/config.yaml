@@ -1,9 +1,9 @@
 env: dev
 level: 4
-log: /dev/stdout
+log: /var/log/jasta.log
 
 http:
     main:
-        addr: 127.0.0.1:8080
+        addr: 127.0.0.1:15432
 
-websites: test_data
+websites: /etc/jasta/websites

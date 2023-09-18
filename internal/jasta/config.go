@@ -35,7 +35,7 @@ type (
 	WebsiteConfigs []*WebsiteConfig
 
 	WebsiteConfig struct {
-		Domain       string       `yaml:"domain"`
+		Domains      []string     `yaml:"domains"`
 		Root         string       `yaml:"root"`
 		IndexFile    string       `yaml:"index_file"`
 		AssetsFolder string       `yaml:"assets_folder"`
@@ -48,19 +48,19 @@ type (
 )
 
 func (c *WebsiteConfig) Validate() error {
-	if len(c.Domain) == 0 {
+	if len(c.Domains) == 0 {
 		return fmt.Errorf("invalid domain")
 	}
 	if len(c.Root) == 0 || !iofile.Exist(c.Root) {
 		return fmt.Errorf("invalid root folder")
 	}
-	if len(c.AssetsFolder) == 0 || !iofile.Exist(c.Root+"/"+c.AssetsFolder) {
+	if len(c.AssetsFolder) == 0 {
 		return fmt.Errorf("invalid assets folder")
 	}
-	if len(c.IndexFile) == 0 || !iofile.Exist(c.Root+"/"+c.IndexFile) {
+	if len(c.IndexFile) == 0 {
 		return fmt.Errorf("invalid index file")
 	}
-	if len(c.Page404) == 0 || !iofile.Exist(c.Root+"/"+c.Page404) {
+	if len(c.Page404) == 0 {
 		return fmt.Errorf("invalid page 404 file")
 	}
 	if len(c.Route404) == 0 {

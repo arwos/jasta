@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/osspkg/go-sdk/app"
+	"github.com/osspkg/go-sdk/log"
 	"github.com/osspkg/go-static"
 	"github.com/osspkg/goppy/plugins/web"
 )
@@ -55,13 +56,15 @@ func (v *Jasta) handler(ctx web.Context) {
 	path := pathProtect(ctx.URL().Path)
 	host, _, err := net.SplitHostPort(ctx.URL().Host)
 	if err != nil {
-		ctx.Response().WriteHeader(500)
-		return
+		host = ctx.URL().Host
 	}
 
 	conf, ok := v.settings[host]
 	if !ok {
 		ctx.Response().WriteHeader(403)
+		log.WithFields(log.Fields{
+			"host": host,
+		}).Warnf("Host not found")
 		return
 	}
 
@@ -82,13 +85,16 @@ func (v *Jasta) handler(ctx web.Context) {
 func prepareSettings(c []*WebsiteConfig) map[string]Setting {
 	result := make(map[string]Setting, 10)
 	for _, item := range c {
-		result[item.Domain] = Setting{
-			Root:     item.Root,
-			Assets:   item.AssetsFolder,
-			Index:    item.IndexFile,
-			Page404:  item.Page404,
-			Route404: item.Route404,
+		for _, domain := range item.Domains {
+			result[domain] = Setting{
+				Root:     item.Root,
+				Assets:   item.AssetsFolder,
+				Index:    item.IndexFile,
+				Page404:  item.Page404,
+				Route404: item.Route404,
+			}
 		}
+
 	}
 	return result
 }
