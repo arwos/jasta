@@ -1,7 +1,11 @@
+/*
+ *  Copyright (c) 2023 Mikhail Knyazhev <markus621@gmail.com>. All rights reserved.
+ *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
+ */
+
 package jasta
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -109,5 +113,5 @@ func doResponse(w http.ResponseWriter, root string, page string, code int, nextP
 
 	w.Header().Set("Content-Type", static.DetectContentType(page, b))
 	w.WriteHeader(code)
-	w.Write(b)
+	w.Write(b) //nolint: errcheck
 }
