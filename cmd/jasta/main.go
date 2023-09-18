@@ -17,7 +17,7 @@ func main() {
 		web.WithHTTP(),
 	)
 	app.Plugins(
-		jasta.Plugin,
+		jasta.Plugins...,
 	)
 	app.Run()
 }
