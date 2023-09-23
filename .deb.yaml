@@ -3,6 +3,7 @@ source: jasta
 version: 1:0.0.1
 architecture:
     - amd64
+    - arm64
 maintainer: The OSSPkg Team <github@osspkg.com>
 homepage: https://jasta.osspkg.com/
 description:
@@ -16,6 +17,7 @@ control:
         - nginx
     conffiles:
         - /etc/jasta/config.yaml
+    build: devtool build --arch=%arch%
     preinst: scripts/preinst.sh
     postinst: scripts/postinst.sh
     prerm: scripts/prerm.sh
