@@ -1,6 +1,6 @@
 package: jasta
 source: jasta
-version: 1:0.0.1
+version: 1:0.0.2
 architecture:
     - amd64
     - arm64

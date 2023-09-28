@@ -21,5 +21,6 @@ func main() {
 		jasta.Plugins...,
 	)
 	app.Command("nginx", command.InstallNginxConfig)
+	app.Command("prerender", command.PreRenderStaticWebsites)
 	app.Run()
 }

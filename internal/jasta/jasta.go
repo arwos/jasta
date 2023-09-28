@@ -25,11 +25,10 @@ type (
 	}
 
 	Setting struct {
-		Root     string
-		Assets   string
-		Index    string
-		Page404  string
-		Route404 string
+		Root    string
+		Assets  string
+		Page404 string
+		Single  bool
 	}
 )
 
@@ -68,18 +67,23 @@ func (v *Jasta) handler(ctx web.Context) {
 		return
 	}
 
-	if path == conf.Route404 {
-		doResponse(ctx.Response(), conf.Root, conf.Page404, 404, "", 404)
-		return
-	}
-
 	ext := filepath.Ext(path)
-	if strings.HasPrefix(path, conf.Assets) || len(ext) > 0 {
-		doResponse(ctx.Response(), conf.Root, path, 200, "", 404)
+	if strings.HasPrefix(path, conf.Assets) && len(ext) > 0 {
+		doResponse(ctx.Response(), conf.Root, path, "")
 		return
 	}
 
-	doResponse(ctx.Response(), conf.Root, path, 200, conf.Index, 200)
+	if conf.Single {
+		if len(ext) == 0 {
+			path = "index.html"
+		}
+		doResponse(ctx.Response(), conf.Root, path, "")
+	} else {
+		if len(ext) == 0 {
+			path = strings.TrimRight(path, "/") + "/index.html"
+		}
+		doResponse(ctx.Response(), conf.Root, path, conf.Page404)
+	}
 }
 
 func prepareSettings(c []*WebsiteConfig) map[string]Setting {
@@ -87,11 +91,10 @@ func prepareSettings(c []*WebsiteConfig) map[string]Setting {
 	for _, item := range c {
 		for _, domain := range item.Domains {
 			result[domain] = Setting{
-				Root:     item.Root,
-				Assets:   item.AssetsFolder,
-				Index:    item.IndexFile,
-				Page404:  item.Page404,
-				Route404: item.Route404,
+				Root:    item.Root,
+				Assets:  item.AssetsFolder,
+				Page404: item.Page404,
+				Single:  item.Single,
 			}
 		}
 
@@ -103,18 +106,20 @@ func pathProtect(path string) string {
 	return strings.ReplaceAll(path, "../", "/")
 }
 
-func doResponse(w http.ResponseWriter, root string, page string, code int, nextPage string, nextCode int) {
+func doResponse(w http.ResponseWriter, root string, page string, page404 string) {
 	b, err := os.ReadFile(root + "/" + page)
+	code := 200
 	if err != nil {
-		if len(nextPage) == 0 {
+		if len(page404) == 0 {
 			w.WriteHeader(404)
 			return
 		}
-		if b, err = os.ReadFile(root + "/" + nextPage); err != nil {
+		if b, err = os.ReadFile(root + "/" + page404); err != nil {
 			w.WriteHeader(500)
 			return
 		}
-		code = nextCode
+		code = 404
+		page = page404
 	}
 
 	w.Header().Set("Content-Type", static.DetectContentType(page, b))

@@ -34,3 +34,6 @@ run_local:
 
 deb:
 	deb-builder build
+
+local: build
+	cp ./build/jasta_amd64 $(GOPATH)/bin/jasta

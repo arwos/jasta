@@ -2,7 +2,6 @@ domains:
   - localhost
   - 127.0.0.1
 root: /usr/share/nginx/html
-index_file: index.html
-page404: index.html
-route404: /404
+page404: 404.html
 assets_folder: /assets/
+single: false

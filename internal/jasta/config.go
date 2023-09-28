@@ -35,12 +35,11 @@ type (
 	WebsiteConfigs []*WebsiteConfig
 
 	WebsiteConfig struct {
+		Single       bool         `yaml:"single"`
 		Domains      []string     `yaml:"domains"`
 		Root         string       `yaml:"root"`
-		IndexFile    string       `yaml:"index_file"`
 		AssetsFolder string       `yaml:"assets_folder"`
 		Page404      string       `yaml:"page404"`
-		Route404     string       `yaml:"route404"`
 		Placeholders Placeholders `yaml:"placeholders,omitempty"`
 	}
 
@@ -57,14 +56,8 @@ func (c *WebsiteConfig) Validate() error {
 	if len(c.AssetsFolder) == 0 {
 		return fmt.Errorf("invalid assets folder")
 	}
-	if len(c.IndexFile) == 0 {
-		return fmt.Errorf("invalid index file")
-	}
 	if len(c.Page404) == 0 {
 		return fmt.Errorf("invalid page 404 file")
-	}
-	if len(c.Route404) == 0 {
-		return fmt.Errorf("invalid route 404 file")
 	}
 	return nil
 }
