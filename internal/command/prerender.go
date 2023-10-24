@@ -6,8 +6,8 @@
 package command
 
 import (
-	"github.com/osspkg/go-sdk/console"
 	"github.com/osspkg/jasta/internal/spiderweb"
+	"go.osspkg.com/goppy/sdk/console"
 )
 
 func PreRenderStaticWebsites() {

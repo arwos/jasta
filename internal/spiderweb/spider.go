@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/osspkg/go-sdk/iofile"
-	"github.com/osspkg/go-sdk/shell"
-	"github.com/osspkg/go-sdk/syscall"
 	"github.com/osspkg/jasta/internal/utils"
+	"go.osspkg.com/goppy/sdk/iofile"
+	"go.osspkg.com/goppy/sdk/shell"
+	"go.osspkg.com/goppy/sdk/syscall"
 )
 
 type Spider struct {

@@ -12,10 +12,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/osspkg/go-sdk/app"
-	"github.com/osspkg/go-sdk/log"
-	"github.com/osspkg/go-static"
-	"github.com/osspkg/goppy/plugins/web"
+	"go.osspkg.com/goppy/plugins/web"
+	"go.osspkg.com/goppy/sdk/app"
+	"go.osspkg.com/goppy/sdk/log"
+	"go.osspkg.com/static"
+)
+
+const (
+	extHTML = ".html"
 )
 
 type (
@@ -69,7 +73,7 @@ func (v *Jasta) handler(ctx web.Context) {
 
 	ext := filepath.Ext(path)
 	if strings.HasPrefix(path, conf.Assets) && len(ext) > 0 {
-		doResponse(ctx.Response(), conf.Root, path, "")
+		doResponse(ctx.Response(), conf.Root, path, "", ext)
 		return
 	}
 
@@ -77,12 +81,12 @@ func (v *Jasta) handler(ctx web.Context) {
 		if len(ext) == 0 {
 			path = "index.html"
 		}
-		doResponse(ctx.Response(), conf.Root, path, "")
+		doResponse(ctx.Response(), conf.Root, path, "", ".html")
 	} else {
 		if len(ext) == 0 {
 			path = strings.TrimRight(path, "/") + "/index.html"
 		}
-		doResponse(ctx.Response(), conf.Root, path, conf.Page404)
+		doResponse(ctx.Response(), conf.Root, path, conf.Page404, ".html")
 	}
 }
 
@@ -106,7 +110,7 @@ func pathProtect(path string) string {
 	return strings.ReplaceAll(path, "../", "/")
 }
 
-func doResponse(w http.ResponseWriter, root string, page string, page404 string) {
+func doResponse(w http.ResponseWriter, root string, page string, page404 string, ext string) {
 	b, err := os.ReadFile(root + "/" + page)
 	code := 200
 	if err != nil {
@@ -123,6 +127,9 @@ func doResponse(w http.ResponseWriter, root string, page string, page404 string)
 	}
 
 	w.Header().Set("Content-Type", static.DetectContentType(page, b))
+	if ext != extHTML {
+		w.Header().Set("Cache-Control", "max-age=10800")
+	}
 	w.WriteHeader(code)
 	w.Write(b) //nolint: errcheck
 }

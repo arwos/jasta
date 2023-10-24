@@ -8,9 +8,9 @@ package jasta
 import (
 	"fmt"
 
-	"github.com/osspkg/go-sdk/app"
-	"github.com/osspkg/goppy/plugins"
 	"github.com/osspkg/jasta/internal/utils"
+	"go.osspkg.com/goppy/plugins"
+	"go.osspkg.com/goppy/sdk/app"
 )
 
 var Plugins = plugins.Plugins{}.Inject(

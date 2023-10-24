@@ -17,8 +17,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/osspkg/go-sdk/errors"
-	"github.com/osspkg/go-sdk/log"
+	"go.osspkg.com/goppy/sdk/errors"
+	"go.osspkg.com/goppy/sdk/log"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/tiff"
