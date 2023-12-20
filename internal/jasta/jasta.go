@@ -12,9 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.osspkg.com/goppy/plugins/web"
-	"go.osspkg.com/goppy/sdk/app"
-	"go.osspkg.com/goppy/sdk/log"
+	"go.osspkg.com/goppy/web"
+	"go.osspkg.com/goppy/xlog"
 	"go.osspkg.com/static"
 )
 
@@ -43,7 +42,7 @@ func New(c WebsiteConfigs, r web.RouterPool) *Jasta {
 	}
 }
 
-func (v *Jasta) Up(_ app.Context) error {
+func (v *Jasta) Up() error {
 	v.router.Get("/", v.handler)
 	v.router.Get("#", v.handler)
 	return nil
@@ -65,7 +64,7 @@ func (v *Jasta) handler(ctx web.Context) {
 	conf, ok := v.settings[host]
 	if !ok {
 		ctx.Response().WriteHeader(403)
-		log.WithFields(log.Fields{
+		xlog.WithFields(xlog.Fields{
 			"host": host,
 		}).Warnf("Host not found")
 		return
@@ -94,6 +93,10 @@ func prepareSettings(c []*WebsiteConfig) map[string]Setting {
 	result := make(map[string]Setting, 10)
 	for _, item := range c {
 		for _, domain := range item.Domains {
+			xlog.WithFields(xlog.Fields{
+				"domain": domain,
+				"root":   item.Root,
+			}).Infof("Load config")
 			result[domain] = Setting{
 				Root:    item.Root,
 				Assets:  item.AssetsFolder,
@@ -119,7 +122,7 @@ func doResponse(w http.ResponseWriter, root string, page string, page404 string,
 			return
 		}
 		if b, err = os.ReadFile(root + "/" + page404); err != nil {
-			w.WriteHeader(500)
+			w.WriteHeader(404)
 			return
 		}
 		code = 404

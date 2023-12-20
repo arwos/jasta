@@ -17,8 +17,8 @@ import (
 	"strings"
 	"sync"
 
-	"go.osspkg.com/goppy/sdk/errors"
-	"go.osspkg.com/goppy/sdk/log"
+	"go.osspkg.com/goppy/errors"
+	"go.osspkg.com/goppy/xlog"
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/tiff"
@@ -129,7 +129,7 @@ func (v *Images) writeFile(filename string, img image.Image) error {
 	}
 	defer func() {
 		if err0 := file.Close(); err0 != nil {
-			log.WithFields(log.Fields{
+			xlog.WithFields(xlog.Fields{
 				"err":  err0.Error(),
 				"file": filename,
 			}).Errorf("Close image file")
@@ -154,7 +154,7 @@ func (v *Images) readFile(filename string) (image.Image, string, error) {
 	}
 	defer func() {
 		if err0 := file.Close(); err0 != nil {
-			log.WithFields(log.Fields{
+			xlog.WithFields(xlog.Fields{
 				"err":  err0.Error(),
 				"file": filename,
 			}).Errorf("Close image file")
@@ -179,7 +179,7 @@ func (v *Images) getHash(filename string) (string, error) {
 	}
 	defer func() {
 		if err0 := file.Close(); err0 != nil {
-			log.WithFields(log.Fields{
+			xlog.WithFields(xlog.Fields{
 				"err":  err0.Error(),
 				"file": filename,
 			}).Errorf("Close image file")

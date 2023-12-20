@@ -9,11 +9,11 @@ import (
 	"fmt"
 
 	"github.com/osspkg/jasta/internal/utils"
+	"go.osspkg.com/goppy/app"
 	"go.osspkg.com/goppy/plugins"
-	"go.osspkg.com/goppy/sdk/app"
 )
 
-var Plugins = plugins.Plugins{}.Inject(
+var Plugins = plugins.Inject(
 	plugins.Plugin{
 		Config: &Config{},
 		Inject: WebsiteConfigDecode,

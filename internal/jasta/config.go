@@ -8,7 +8,7 @@ package jasta
 import (
 	"fmt"
 
-	"go.osspkg.com/goppy/sdk/iofile"
+	"go.osspkg.com/goppy/iofile"
 )
 
 type Config struct {

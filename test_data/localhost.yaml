@@ -1,7 +1,6 @@
 domains:
   - localhost
 root: test_data
-index_file: index.html
 page404: 404.html
-route404: /404.html
 assets_folder: /assets/
+single: false

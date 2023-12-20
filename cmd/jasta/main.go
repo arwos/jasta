@@ -9,7 +9,7 @@ import (
 	"github.com/osspkg/jasta/internal/command"
 	"github.com/osspkg/jasta/internal/jasta"
 	"go.osspkg.com/goppy"
-	"go.osspkg.com/goppy/plugins/web"
+	"go.osspkg.com/goppy/web"
 )
 
 func main() {

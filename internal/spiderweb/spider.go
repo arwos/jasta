@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/osspkg/jasta/internal/utils"
-	"go.osspkg.com/goppy/sdk/iofile"
-	"go.osspkg.com/goppy/sdk/shell"
-	"go.osspkg.com/goppy/sdk/syscall"
+	"go.osspkg.com/goppy/iofile"
+	"go.osspkg.com/goppy/shell"
+	"go.osspkg.com/goppy/syscall"
 )
 
 type Spider struct {
