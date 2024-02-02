@@ -12,8 +12,13 @@ import (
 	"go.osspkg.com/goppy/web"
 )
 
+var Version = "v0.0.0-dev"
+
 func main() {
 	app := goppy.New()
+	app.AppName("jasta")
+	app.AppDescription("Gateway for static sites")
+	app.AppVersion(Version)
 	app.Plugins(
 		web.WithHTTP(),
 	)

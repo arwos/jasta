@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/osspkg/jasta/internal/utils"
-	"go.osspkg.com/goppy/app"
+	"go.osspkg.com/goppy/iofile"
 	"go.osspkg.com/goppy/plugins"
 )
 
@@ -34,7 +34,7 @@ func WebsiteConfigDecode(c *Config) (WebsiteConfigs, error) {
 	}
 	for _, filename := range files {
 		wc := &WebsiteConfig{}
-		if err = app.Sources(filename).Decode(wc); err != nil {
+		if err = iofile.FileCodec(filename).Decode(wc); err != nil {
 			return nil, fmt.Errorf("invalid website config [%s]: %w", filename, err)
 		}
 		if err = wc.Validate(); err != nil {

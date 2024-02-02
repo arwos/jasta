@@ -32,6 +32,9 @@ ci: install setup lint build tests
 run_local:
 	go run cmd/jasta/main.go --config=config/config.dev.yaml
 
+prerender_local:
+	go run cmd/jasta/main.go prerender
+
 deb:
 	deb-builder build
 

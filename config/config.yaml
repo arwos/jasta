@@ -1,6 +1,8 @@
 env: dev
-level: 4
-log: /var/log/jasta.log
+log:
+    level: 4
+    file_path: /var/log/jasta.log
+    format: string
 
 http:
     main:
