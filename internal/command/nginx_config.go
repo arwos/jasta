@@ -1,13 +1,14 @@
 /*
- *  Copyright (c) 2023 Mikhail Knyazhev <markus621@gmail.com>. All rights reserved.
+ *  Copyright (c) 2023-2024 Mikhail Knyazhev <markus621@yandex.com>. All rights reserved.
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
 package command
 
 import (
-	"fmt"
 	"os"
+
+	"go.osspkg.com/console"
 )
 
 const nginxConfigTemplate = `
@@ -28,10 +29,6 @@ server {
 
 func InstallNginxConfig() {
 	err := os.WriteFile("/etc/nginx/sites-available/default", []byte(nginxConfigTemplate), 0744)
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	fmt.Println("Done")
-	os.Exit(0)
+	console.FatalIfErr(err, "write nginx config")
+	console.Infof("Done")
 }

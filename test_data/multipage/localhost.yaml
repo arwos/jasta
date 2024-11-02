@@ -1,0 +1,6 @@
+domains:
+  - localhost
+root: ./
+page404: 404.html
+assets_folder: /assets/
+single: false
