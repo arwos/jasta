@@ -1,11 +1,12 @@
-env: dev
+env: prod
+
 log:
-    level: 4
     file_path: /var/log/jasta.log
     format: string
+    level: 4
 
 http:
-    main:
-        addr: 127.0.0.1:15432
+    - addr: 127.0.0.1:15432
+      tag: main
 
 websites: /etc/jasta/websites

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Mikhail Knyazhev <markus621@gmail.com>. All rights reserved.
+ *  Copyright (c) 2023-2024 Mikhail Knyazhev <markus621@yandex.com>. All rights reserved.
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
@@ -8,7 +8,7 @@ package jasta
 import (
 	"fmt"
 
-	"go.osspkg.com/goppy/iofile"
+	"go.osspkg.com/ioutils/fs"
 )
 
 type Config struct {
@@ -25,7 +25,7 @@ func (c *Config) Validate() error {
 	if len(c.Websites) == 0 {
 		return fmt.Errorf("websites folder path is not defined")
 	}
-	if !iofile.Exist(c.Websites) {
+	if !fs.FileExist(c.Websites) {
 		return fmt.Errorf("websites folder path is not exist")
 	}
 	return nil
@@ -50,7 +50,7 @@ func (c *WebsiteConfig) Validate() error {
 	if len(c.Domains) == 0 {
 		return fmt.Errorf("invalid domain")
 	}
-	if len(c.Root) == 0 || !iofile.Exist(c.Root) {
+	if len(c.Root) == 0 || !fs.FileExist(c.Root) {
 		return fmt.Errorf("invalid root folder")
 	}
 	if len(c.AssetsFolder) == 0 {
