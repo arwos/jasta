@@ -1,11 +1,12 @@
 env: dev
+
 log:
-    level: 4
     file_path: /dev/stdout
     format: string
+    level: 4
 
 http:
-    main:
-        addr: 127.0.0.1:8080
+    - addr: 0.0.0.0:8080
+      tag: main
 
 websites: test_data

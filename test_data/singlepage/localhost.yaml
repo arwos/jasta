@@ -1,6 +1,6 @@
 domains:
-  - localhost
-root: test_data
+  - 127.0.0.1
+root: ./
 page404: 404.html
 assets_folder: /assets/
-single: false
+single: true

@@ -1,33 +1,30 @@
 
 .PHONY: install
 install:
-	go install github.com/osspkg/devtool@latest
-
-.PHONY: setup
-setup:
-	devtool setup-lib
+	go install go.osspkg.com/goppy/v2/cmd/goppy@latest
+	goppy setup-lib
 
 .PHONY: lint
 lint:
-	devtool lint
+	goppy lint
 
 .PHONY: license
 license:
-	devtool license
+	goppy license
 
 .PHONY: build
 build:
-	devtool build --arch=amd64
+	goppy build --arch=amd64
 
 .PHONY: tests
 tests:
-	devtool test
+	goppy test
 
-.PHONY: pre-commite
-pre-commite: setup lint build tests
+.PHONY: pre-commit
+pre-commit: lint build tests
 
 .PHONY: ci
-ci: install setup lint build tests
+ci: install pre-commit
 
 run_local:
 	go run cmd/jasta/main.go --config=config/config.dev.yaml
@@ -35,7 +32,7 @@ run_local:
 prerender_local:
 	go run cmd/jasta/main.go prerender
 
-deb:
+deb: build
 	deb-builder build
 
 local: build

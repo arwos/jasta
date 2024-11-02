@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Mikhail Knyazhev <markus621@gmail.com>. All rights reserved.
+ *  Copyright (c) 2023-2024 Mikhail Knyazhev <markus621@yandex.com>. All rights reserved.
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
@@ -15,22 +15,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/osspkg/jasta/internal/utils"
-	"go.osspkg.com/goppy/iofile"
-	"go.osspkg.com/goppy/shell"
-	"go.osspkg.com/goppy/syscall"
+	"go.osspkg.com/do"
+	"go.osspkg.com/events"
+	"go.osspkg.com/ioutils/codec"
+	"go.osspkg.com/ioutils/fs"
+	"go.osspkg.com/ioutils/shell"
 )
 
 type Spider struct {
-	shell   shell.Shell
-	tempDir string
-	config  *Config
+	shell  shell.TShell
+	config *Config
 }
 
 func New() *Spider {
-	return &Spider{
-		tempDir: os.TempDir(),
-	}
+	return &Spider{}
 }
 
 func (v *Spider) Run() error {
@@ -41,7 +39,7 @@ func (v *Spider) Run() error {
 		return err
 	}
 	ctx, cncl := context.WithCancel(context.Background())
-	go syscall.OnStop(cncl)
+	go events.OnStopSignal(cncl)
 	all, err := v.grab(ctx)
 	if err != nil {
 		return err
@@ -51,9 +49,7 @@ func (v *Spider) Run() error {
 
 func (v *Spider) initShell() error {
 	v.shell = shell.New()
-	v.shell.SetShell("/bin/bash")
-	v.shell.SetDir(v.tempDir)
-	return nil
+	return v.shell.SetShell("/bin/bash", "x", "e", "c")
 }
 
 func (v *Spider) initConfig() error {
@@ -62,11 +58,11 @@ func (v *Spider) initConfig() error {
 		return err
 	}
 	filename := fmt.Sprintf("%s/%s", dir, configName)
-	if !iofile.Exist(filename) {
+	if !fs.FileExist(filename) {
 		return fmt.Errorf("config not found in: %s", dir)
 	}
 	conf := &Config{}
-	if err = iofile.FileCodec(filename).Decode(conf); err != nil {
+	if err = codec.FileEncoder(filename).Decode(conf); err != nil {
 		return err
 	}
 	v.config = conf
@@ -87,7 +83,7 @@ func (v *Spider) grab(ctx context.Context) ([]string, error) {
 		for _, uri := range urls {
 			select {
 			case <-ctx.Done():
-				return utils.Map2Slice(all), nil
+				return do.Keys[string, struct{}](all), nil
 
 			default:
 				b, err := v.getHtml(ctx, uri)
@@ -111,21 +107,26 @@ func (v *Spider) grab(ctx context.Context) ([]string, error) {
 							continue
 						}
 						temp = append(temp, u.Path)
-						fmt.Println(u.Path)
 						all[u.Path] = struct{}{}
 					}
 				}
 			}
 		}
 		if len(temp) == 0 {
-			return utils.Map2Slice(all), nil
+			return do.Keys[string, struct{}](all), nil
 		}
 		urls = append(urls[:0], temp...)
 	}
 }
 
 func (v *Spider) getHtml(ctx context.Context, uri string) ([]byte, error) {
-	b, err := v.shell.Call(ctx, fmt.Sprintf(runChromium, v.tempDir, v.config.DevHost+"/"+strings.TrimLeft(uri, "/")))
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "jasta-prerend-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir) // nolint: errcheck
+	v.shell.SetDir(tmpDir)
+	b, err := v.shell.Call(ctx, fmt.Sprintf(runChromium, tmpDir, v.config.DevHost+"/"+strings.TrimLeft(uri, "/")))
 	if err != nil {
 		return nil, err
 	}
