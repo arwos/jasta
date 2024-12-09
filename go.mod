@@ -6,7 +6,7 @@ require (
 	go.osspkg.com/console v0.3.3
 	go.osspkg.com/do v0.1.2
 	go.osspkg.com/events v0.3.0
-	go.osspkg.com/goppy/v2 v2.1.5
+	go.osspkg.com/goppy/v2 v2.1.6
 	go.osspkg.com/ioutils v0.4.7
 	go.osspkg.com/logx v0.4.2
 	go.osspkg.com/static v1.4.0
