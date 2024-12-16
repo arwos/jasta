@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	go.osspkg.com/console v0.3.3
-	go.osspkg.com/do v0.1.2
+	go.osspkg.com/do v0.1.3
 	go.osspkg.com/events v0.3.0
 	go.osspkg.com/goppy/v2 v2.1.5
 	go.osspkg.com/ioutils v0.4.7
