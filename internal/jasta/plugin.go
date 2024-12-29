@@ -8,7 +8,6 @@ package jasta
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"go.osspkg.com/goppy/v2/plugins"
 	"go.osspkg.com/ioutils/codec"
@@ -44,7 +43,10 @@ func WebsiteConfigDecode(c *Config) (WebsiteConfigs, error) {
 			if err0 != nil {
 				return nil, fmt.Errorf("validate root path for [%s]: %w", filename, err0)
 			}
-			wc.Root = filepath.Dir(filenameFull) + "/" + strings.TrimLeft(wc.Root, "./")
+			wc.Root, err0 = filepath.Abs(filepath.Dir(filenameFull) + "/" + wc.Root)
+			if err0 != nil {
+				return nil, fmt.Errorf("validate root path for [%s]: %w", filename, err0)
+			}
 		}
 		if err = wc.Validate(); err != nil {
 			return nil, err
