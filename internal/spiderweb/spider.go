@@ -119,6 +119,11 @@ func (v *Spider) grab(ctx context.Context) ([]string, error) {
 	}
 }
 
+var (
+	htmlStart = []byte("<!DOCTYPE")
+	htmlEnd   = []byte("</html>")
+)
+
 func (v *Spider) getHtml(ctx context.Context, uri string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "jasta-prerend-*")
 	if err != nil {
@@ -130,11 +135,15 @@ func (v *Spider) getHtml(ctx context.Context, uri string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	index := bytes.Index(b, []byte("<!DOCTYPE"))
-	if index == -1 {
-		return nil, fmt.Errorf("html is empty")
+	indexStart := bytes.Index(b, htmlStart)
+	if indexStart == -1 {
+		return nil, fmt.Errorf("fail get start HTML document")
 	}
-	return b[index:], nil
+	indexEnd := bytes.LastIndex(b, htmlEnd)
+	if indexEnd == -1 {
+		return nil, fmt.Errorf("fail get end HTML document")
+	}
+	return b[indexStart : indexEnd+len(htmlEnd)], nil
 }
 
 func (v *Spider) buildSitemap(data []string) error {
