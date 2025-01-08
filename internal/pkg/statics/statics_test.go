@@ -1,4 +1,4 @@
-package jasta
+package statics
 
 import (
 	"testing"

@@ -6,18 +6,22 @@
 package main
 
 import (
+	"go.osspkg.com/goppy/v2"
+	"go.osspkg.com/goppy/v2/orm"
+	"go.osspkg.com/goppy/v2/web"
+
 	"go.arwos.org/jasta/internal/command"
 	"go.arwos.org/jasta/internal/jasta"
-	"go.osspkg.com/goppy/v2"
-	"go.osspkg.com/goppy/v2/web"
 )
 
 var Version = "v0.0.0-dev"
 
 func main() {
-	app := goppy.New("jasta", Version, "Gateway for static sites")
+	app := goppy.New("jasta", Version, "Gateway Server")
 	app.Plugins(
 		web.WithServer(),
+		orm.WithORM(),
+		orm.WithSqlite(),
 	)
 	app.Plugins(
 		jasta.Plugins...,

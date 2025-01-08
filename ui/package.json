@@ -1,0 +1,53 @@
+{
+  "name": "ui",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --proxy-config proxy.conf.json",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18.13.0",
+    "yarn": ">=1.21.1 <2",
+    "npm": "Please use yarn instead of NPM to install dependencies"
+  },
+  "dependencies": {
+    "@angular/animations": "~19.0.0",
+    "@angular/common": "~19.0.0",
+    "@angular/compiler": "~19.0.0",
+    "@angular/core": "~19.0.0",
+    "@angular/forms": "~19.0.0",
+    "@angular/platform-browser": "~19.0.0",
+    "@angular/platform-browser-dynamic": "~19.0.0",
+    "@angular/router": "~19.0.0",
+    "@onega-ui/core": "^0.3.0",
+    "@onega-ui/icons": "^0.1.0",
+    "@onega-ui/kit": "^0.2.0",
+    "@onega-ui/styles": "^0.2.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "~19.0.0",
+    "@angular-eslint/builder": "~19.0.0",
+    "@angular-eslint/eslint-plugin": "~19.0.0",
+    "@angular-eslint/eslint-plugin-template": "~19.0.0",
+    "@angular-eslint/schematics": "~19.0.0",
+    "@angular-eslint/template-parser": "~19.0.0",
+    "@angular/cli": "~19.0.0",
+    "@angular/compiler-cli": "~19.0.0",
+    "@types/node": "~20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/types": "^7.0.0",
+    "@typescript-eslint/utils": "^7.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-airbnb-typescript": "^18.0.0",
+    "eslint-plugin-import": "^2.0.0",
+    "typescript": "~5.6.2",
+    "vite": "^5.0.0"
+  }
+}

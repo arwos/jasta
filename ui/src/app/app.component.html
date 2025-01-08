@@ -1,0 +1,64 @@
+<div class="area-fluid">
+
+  <div class="row m-0 p-0">
+
+    <ong-menuv>
+      <ng-template ong-menuv-header>
+        <h3 class="t-color-danger">JASTA</h3>
+        <h4 class="t-color-danger">ADMIN PANEL</h4>
+      </ng-template>
+      <ng-template ong-menuv-body>
+        <div class="row">
+          <button class="btn btn-success col">
+            <i class="ong ong-check-circle mr-1"></i>Apply All
+          </button>
+        </div>
+        <div class="row">
+          <button class="btn btn-danger col" (click)="step='add'">
+            <i class="ong ong-add-circle mr-1"></i>Add Config
+          </button>
+        </div>
+
+        <hr/>
+
+        <div class="row gap-1">
+          @for (item of _listConfig;track item.name) {
+            <button class="btn btn-warning col mr-1" (click)="edit(item.id)">
+              @if (item.enable === 0) {
+                <i class="ong ong-cancel-circle t-color-danger0 mr-1" style="margin-left: -1rem !important;"></i>
+              }
+              {{ item.name }}
+            </button>
+          }
+        </div>
+
+      </ng-template>
+      <ng-template ong-menuv-footer>
+        <hr/>
+        <h5 class="t-color-danger m-1 w-content t-align-center">The OSSPkg Team</h5>
+      </ng-template>
+    </ong-menuv>
+
+    <div class="box">
+
+      @switch (step) {
+
+        @case ("add") {
+          <h3>Create New Config</h3>
+          <div class="row mt-3">
+            <label for="configName" class="col">Name</label>
+            <input id="configName" class="col" type="text" [(ngModel)]="_createConfig.name"/>
+            <button class="col btn btn-danger" (click)="create()">Create</button>
+          </div>
+        }
+        @case ("edit") {
+
+        }
+
+      }
+
+    </div>
+
+  </div>
+
+</div>

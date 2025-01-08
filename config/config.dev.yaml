@@ -1,12 +1,19 @@
 env: dev
-
 log:
-    file_path: /dev/stdout
-    format: string
-    level: 4
-
+  file_path: /dev/stdout
+  format: string
+  level: 4
 http:
-    - addr: 0.0.0.0:8080
-      tag: main
-
-websites: test_data
+  - addr: 0.0.0.0:19086
+    tag: main
+sqlite:
+  - tags: master
+    file: ./sqlite.db
+    cache: shared
+    journal: WAL
+    locking_mode: EXCLUSIVE
+    other_params: auto_vacuum=incremental&_fk=true
+    mode: rwc
+sqlite_migrate:
+  - dir: ./migrations
+    tags: master

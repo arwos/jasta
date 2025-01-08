@@ -13,6 +13,8 @@ coverage.out
 *.dylib
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.mmdb
 *.test
 *.out
