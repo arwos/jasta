@@ -6,7 +6,7 @@
 package command
 
 import (
-	"go.arwos.org/jasta/internal/spiderweb"
+	"go.arwos.org/jasta/internal/pkg/spiderweb"
 	"go.osspkg.com/console"
 )
 

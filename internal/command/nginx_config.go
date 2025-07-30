@@ -28,7 +28,11 @@ server {
 `
 
 func InstallNginxConfig() {
-	err := os.WriteFile("/etc/nginx/sites-available/default", []byte(nginxConfigTemplate), 0744)
+	err := os.WriteFile(
+		"/etc/nginx/sites-available/default",
+		[]byte(nginxConfigTemplate),
+		0744,
+	)
 	console.FatalIfErr(err, "write nginx config")
 	console.Infof("Done")
 }

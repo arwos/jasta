@@ -1,6 +1,7 @@
-package jasta
+package protect_test
 
 import (
+	"go.arwos.org/jasta/internal/pkg/protect"
 	"testing"
 )
 
@@ -36,6 +37,11 @@ func TestUnit_protect(t *testing.T) {
 			want: "/index.html/png/",
 		},
 		{
+			name: "Case5",
+			path: "..../..//....///index.html....///.png/...",
+			want: "/index.html/png/",
+		},
+		{
 			name: "Case6",
 			path: "/hello/asd.aaa/index.html",
 			want: "/hello/asd.aaa/index.html",
@@ -49,7 +55,7 @@ func TestUnit_protect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := protect(tt.path); got != tt.want {
+			if got := protect.FilePath(tt.path); got != tt.want {
 				t.Errorf("protect() = %v, want %v", got, tt.want)
 			}
 		})
@@ -59,6 +65,6 @@ func TestUnit_protect(t *testing.T) {
 func BenchmarkProtect(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		protect("..../..//....///index.html.///.png/...")
+		protect.FilePath("..../..//....///index.html.///.png/...")
 	}
 }

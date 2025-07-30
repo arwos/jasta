@@ -3,7 +3,7 @@
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
-package jasta
+package app
 
 import (
 	"fmt"
@@ -31,32 +31,57 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// --------------------------------------------------------------------------------------
+
+const (
+	TypeSPA = "spa"
+	TypeMPA = "mpa"
+	TypeMD  = "md"
+)
+
 type (
 	WebsiteConfigs []*WebsiteConfig
 
 	WebsiteConfig struct {
-		Single       bool         `yaml:"single"`
+		Type         string       `yaml:"type"`
 		Domains      []string     `yaml:"domains"`
-		Root         string       `yaml:"root"`
+		RootFolder   string       `yaml:"root_folder"`
 		AssetsFolder string       `yaml:"assets_folder"`
-		Page404      string       `yaml:"page404"`
+		Page404File  string       `yaml:"page404_file"`
 		Placeholders Placeholders `yaml:"placeholders,omitempty"`
+		Markdown     MarkdownTmpl `yaml:"markdown,omitempty"`
 	}
 
 	Placeholders map[string]string
+	MarkdownTmpl struct {
+		Header string `yaml:"header"`
+		Footer string `yaml:"footer"`
+	}
 )
 
 func (c *WebsiteConfig) Validate() error {
+	switch c.Type {
+	case TypeSPA, TypeMPA:
+	case TypeMD:
+		if len(c.Markdown.Header) == 0 || !fs.FileExist(c.Markdown.Header) {
+			return fmt.Errorf("markdown header is empty or does not exist")
+		}
+		if len(c.Markdown.Footer) == 0 || !fs.FileExist(c.Markdown.Footer) {
+			return fmt.Errorf("markdown footer is empty or does not exist")
+		}
+	default:
+		return fmt.Errorf("unknown type: %s (possible spa, mpa, md)", c.Type)
+	}
 	if len(c.Domains) == 0 {
 		return fmt.Errorf("invalid domain")
 	}
-	if len(c.Root) == 0 || !fs.FileExist(c.Root) {
+	if len(c.RootFolder) == 0 || !fs.FileExist(c.RootFolder) {
 		return fmt.Errorf("invalid root folder")
 	}
 	if len(c.AssetsFolder) == 0 {
 		return fmt.Errorf("invalid assets folder")
 	}
-	if len(c.Page404) == 0 {
+	if len(c.Page404File) == 0 {
 		return fmt.Errorf("invalid page 404 file")
 	}
 	return nil

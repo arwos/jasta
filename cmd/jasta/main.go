@@ -6,8 +6,8 @@
 package main
 
 import (
+	"go.arwos.org/jasta/internal/app"
 	"go.arwos.org/jasta/internal/command"
-	"go.arwos.org/jasta/internal/jasta"
 	"go.osspkg.com/goppy/v2"
 	"go.osspkg.com/goppy/v2/web"
 )
@@ -15,14 +15,14 @@ import (
 var Version = "v0.0.0-dev"
 
 func main() {
-	app := goppy.New("jasta", Version, "Gateway for static sites")
-	app.Plugins(
+	a := goppy.New("jasta", Version, "Gateway for static sites")
+	a.Plugins(
 		web.WithServer(),
 	)
-	app.Plugins(
-		jasta.Plugins...,
+	a.Plugins(
+		app.Plugins...,
 	)
-	app.Command("nginx", command.InstallNginxConfig)
-	app.Command("prerender", command.PreRenderStaticWebsites)
-	app.Run()
+	a.Command("nginx", command.InstallNginxConfig)
+	a.Command("prerender", command.PreRenderStaticWebsites)
+	a.Run()
 }

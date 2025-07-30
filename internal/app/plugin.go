@@ -3,7 +3,7 @@
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
-package jasta
+package app
 
 import (
 	"fmt"
@@ -38,12 +38,12 @@ func WebsiteConfigDecode(c *Config) (WebsiteConfigs, error) {
 		if err = codec.FileEncoder(filename).Decode(wc); err != nil {
 			return nil, fmt.Errorf("invalid website config [%s]: %w", filename, err)
 		}
-		if len(wc.Root) > 0 && wc.Root[0] == '.' {
+		if len(wc.RootFolder) > 0 && wc.RootFolder[0] == '.' {
 			filenameFull, err0 := filepath.Abs(filename)
 			if err0 != nil {
 				return nil, fmt.Errorf("validate root path for [%s]: %w", filename, err0)
 			}
-			wc.Root, err0 = filepath.Abs(filepath.Dir(filenameFull) + "/" + wc.Root)
+			wc.RootFolder, err0 = filepath.Abs(filepath.Dir(filenameFull) + "/" + wc.RootFolder)
 			if err0 != nil {
 				return nil, fmt.Errorf("validate root path for [%s]: %w", filename, err0)
 			}

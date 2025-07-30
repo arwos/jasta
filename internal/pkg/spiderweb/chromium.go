@@ -39,7 +39,7 @@ const runChromium = `DISPLAY=:0 chromium  \
 			--no-managed-user-acknowledgment-check \
 			--no-network-profile-warning \
 			--no-use-mus-in-renderer \
-			--noerrdialogs \
+			--noerrappdialogs \
 			--non-material \
 			--enable-zero-copy \
 			--lang=en-US \
