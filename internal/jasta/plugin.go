@@ -15,11 +15,11 @@ import (
 )
 
 var Plugins = plugins.Inject(
-	plugins.Plugin{
+	plugins.Kind{
 		Config: &Config{},
 		Inject: WebsiteConfigDecode,
 	},
-	plugins.Plugin{
+	plugins.Kind{
 		Inject: New,
 	},
 )
