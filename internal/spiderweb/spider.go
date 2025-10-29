@@ -154,11 +154,13 @@ func (v *Spider) buildSitemap(data []string) error {
 	buf.WriteString("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n")
 
 	for _, datum := range data {
-		buf.WriteString(fmt.Sprintf("<url>"+
-			"<loc>%s%s</loc>"+
-			"<changefreq>daily</changefreq>"+
-			"<priority>0.7</priority>"+
-			"<lastmod>%s</lastmod></url>\n", v.config.Domain, datum, date))
+		fmt.Fprintf(buf,
+			"<url>"+
+				"<loc>%s%s</loc>"+
+				"<changefreq>daily</changefreq>"+
+				"<priority>0.7</priority>"+
+				"<lastmod>%s</lastmod></url>\n",
+			v.config.Domain, datum, date)
 	}
 
 	buf.WriteString("</urlset>\n")

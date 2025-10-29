@@ -6,10 +6,11 @@
 package main
 
 import (
-	"go.arwos.org/jasta/internal/command"
-	"go.arwos.org/jasta/internal/jasta"
 	"go.osspkg.com/goppy/v2"
 	"go.osspkg.com/goppy/v2/web"
+
+	"go.arwos.org/jasta/internal/command"
+	"go.arwos.org/jasta/internal/jasta"
 )
 
 var Version = "v0.0.0-dev"

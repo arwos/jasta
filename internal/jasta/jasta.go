@@ -6,6 +6,7 @@
 package jasta
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -36,11 +37,15 @@ type (
 	}
 )
 
-func New(c WebsiteConfigs, r web.RouterPool) *Jasta {
+func New(c WebsiteConfigs, r web.ServerPool) (*Jasta, error) {
+	route, ok := r.Main()
+	if !ok {
+		return nil, fmt.Errorf("jasta: not found main route")
+	}
 	return &Jasta{
 		settings: prepareSettings(c),
-		router:   r.Main(),
-	}
+		router:   route,
+	}, nil
 }
 
 func (v *Jasta) Up() error {
@@ -53,7 +58,7 @@ func (v *Jasta) Down() error {
 	return nil
 }
 
-func (v *Jasta) handler(ctx web.Context) {
+func (v *Jasta) handler(ctx web.Ctx) {
 	ctx.Response().Header().Set("server", "jasta")
 
 	path := protect(ctx.URL().Path)

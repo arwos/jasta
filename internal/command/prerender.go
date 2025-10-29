@@ -6,8 +6,9 @@
 package command
 
 import (
-	"go.arwos.org/jasta/internal/spiderweb"
 	"go.osspkg.com/console"
+
+	"go.arwos.org/jasta/internal/spiderweb"
 )
 
 func PreRenderStaticWebsites() {
