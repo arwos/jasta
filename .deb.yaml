@@ -17,7 +17,7 @@ control:
         - nginx
     conffiles:
         - /etc/jasta/config.yaml
-    build: devtool build --arch=%arch%
+    build: goppy build --arch=%arch%
     preinst: scripts/preinst.sh
     postinst: scripts/postinst.sh
     prerm: scripts/prerm.sh
