@@ -1,12 +1,19 @@
-env: dev
-
 log:
+    level: 4
     file_path: /dev/stdout
     format: string
-    level: 4
 
 http:
-    - addr: 0.0.0.0:8080
-      tag: main
+    - tag: main
+      addr: 0.0.0.0:8080
+    - tag: admin
+      addr: 0.0.0.0:8090
 
-websites: test_data
+admin:
+    tag: admin
+
+public:
+    tag: main
+    websites: ./test_data
+    throttling: 300
+

@@ -3,7 +3,7 @@
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
-package spiderweb
+package grab
 
 import (
 	"bytes"
@@ -16,30 +16,27 @@ import (
 	"time"
 
 	"go.osspkg.com/do"
-	"go.osspkg.com/events"
 	"go.osspkg.com/ioutils/codec"
 	"go.osspkg.com/ioutils/fs"
 	"go.osspkg.com/ioutils/shell"
 )
 
-type Spider struct {
+type Grab struct {
 	shell  shell.TShell
 	config *Config
 }
 
-func New() *Spider {
-	return &Spider{}
+func New() *Grab {
+	return &Grab{}
 }
 
-func (v *Spider) Run() error {
+func (v *Grab) Run(ctx context.Context) error {
 	if err := v.initConfig(); err != nil {
-		return err
+		return fmt.Errorf("init config: %w", err)
 	}
 	if err := v.initShell(); err != nil {
-		return err
+		return fmt.Errorf("init shell: %w", err)
 	}
-	ctx, cncl := context.WithCancel(context.Background())
-	go events.OnStopSignal(cncl)
 	all, err := v.grab(ctx)
 	if err != nil {
 		return err
@@ -47,22 +44,19 @@ func (v *Spider) Run() error {
 	return v.buildSitemap(all)
 }
 
-func (v *Spider) initShell() error {
+func (v *Grab) initShell() error {
 	v.shell = shell.New()
 	return v.shell.SetShell("/bin/bash", "x", "e", "c")
 }
 
-func (v *Spider) initConfig() error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
+func (v *Grab) initConfig() error {
+	dir := fs.CurrentDir()
 	filename := fmt.Sprintf("%s/%s", dir, configName)
 	if !fs.FileExist(filename) {
 		return fmt.Errorf("config not found in: %s", dir)
 	}
 	conf := &Config{}
-	if err = codec.FileEncoder(filename).Decode(conf); err != nil {
+	if err := codec.FileEncoder(filename).Decode(conf); err != nil {
 		return err
 	}
 	v.config = conf
@@ -71,7 +65,7 @@ func (v *Spider) initConfig() error {
 
 var rex = regexp.MustCompile(`(?miU)<a .* href="(.*)".*>`)
 
-func (v *Spider) grab(ctx context.Context) ([]string, error) {
+func (v *Grab) grab(ctx context.Context) ([]string, error) {
 	all := make(map[string]struct{})
 	urls := []string{"/"}
 
@@ -124,7 +118,7 @@ var (
 	htmlEnd   = []byte("</html>")
 )
 
-func (v *Spider) getHtml(ctx context.Context, uri string) ([]byte, error) {
+func (v *Grab) getHtml(ctx context.Context, uri string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "jasta-prerend-*")
 	if err != nil {
 		return nil, err
@@ -146,7 +140,7 @@ func (v *Spider) getHtml(ctx context.Context, uri string) ([]byte, error) {
 	return b[indexStart : indexEnd+len(htmlEnd)], nil
 }
 
-func (v *Spider) buildSitemap(data []string) error {
+func (v *Grab) buildSitemap(data []string) error {
 	date := time.Now().Format("2006-01-02")
 
 	buf := &bytes.Buffer{}

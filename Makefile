@@ -1,7 +1,7 @@
 
 .PHONY: install
 install:
-	go install go.osspkg.com/goppy/v2/cmd/goppy@latest
+	go install go.osspkg.com/goppy/v3/cmd/goppy@latest
 	goppy setup-lib
 
 .PHONY: lint
@@ -27,7 +27,7 @@ pre-commit: lint build tests
 ci: install pre-commit
 
 run_local:
-	go run cmd/jasta/main.go --config=config/config.dev.yaml
+	go run cmd/jasta/main.go --config=config/config.dev.yaml --config-recovery
 
 prerender_local:
 	go run cmd/jasta/main.go prerender

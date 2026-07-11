@@ -3,9 +3,9 @@
  *  Use of this source code is governed by a BSD-3-Clause license that can be found in the LICENSE file.
  */
 
-package spiderweb
+package grab
 
-const configName = ".jasta.yaml"
+const configName = ".grab.yaml"
 
 type Config struct {
 	DevHost string `yaml:"dev_host"`
