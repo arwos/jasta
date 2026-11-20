@@ -100,14 +100,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   async function saveConfiguration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedSite || !draft) return
+    const submittedDraft = normalizeConfigDraft(draft)
     setSaving(true)
     setError('')
     setNotice('')
     try {
-      await adminApi.validateSiteConfiguration(selectedSite.app_type, draft)
-      const result = await adminApi.updateSiteConfiguration(selectedSite.id, draft)
-      setConfiguration({ site_id: result.site_id, app_type: selectedSite.app_type, revision: result.revision, config: draft })
-      setDraft(draft)
+      await adminApi.validateSiteConfiguration(selectedSite.app_type, submittedDraft)
+      const result = await adminApi.updateSiteConfiguration(selectedSite.id, submittedDraft)
+      setConfiguration({ site_id: result.site_id, app_type: selectedSite.app_type, revision: result.revision, config: submittedDraft })
+      setDraft(submittedDraft)
       setSites((previous) => previous.map((site) => site.id === result.site_id ? { ...site, domains: result.domains, updated_at: new Date().toISOString() } : site))
       setNotice(`Черновик сохранён: ревизия ${result.revision}. Для применения опубликуйте новый релиз.`)
       void adminApi.listSites()
@@ -380,11 +381,12 @@ function CreateSiteForm({ onCancel, onCreate }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const submittedDraft = normalizeConfigDraft(draft)
     setSaving(true)
     setError('')
     try {
-      await adminApi.validateSiteConfiguration(appType, draft)
-      await onCreate(name, appType, draft)
+      await adminApi.validateSiteConfiguration(appType, submittedDraft)
+      await onCreate(name, appType, submittedDraft)
     } catch (requestError) {
       setError(errorMessage(requestError))
     } finally {
@@ -475,7 +477,7 @@ function ConfigFields({ appType, value, onChange }: { appType: ApplicationType; 
       </div>
       <label className="block text-sm font-medium text-slate-800">
         Домены сайта
-        <textarea className={`${inputClass} min-h-24 font-mono text-sm`} onChange={(event) => onChange({ ...value, domains: event.target.value.split('\n').map((domain) => domain.trim()).filter(Boolean) })} placeholder={'www.example.com\nexample.com'} value={domains} />
+        <textarea className={`${inputClass} min-h-24 font-mono text-sm`} onChange={(event) => onChange({ ...value, domains: event.target.value.split(/\r?\n/) })} placeholder={'www.example.com\nexample.com'} value={domains} />
         <span className="mt-1 block text-xs font-normal text-slate-500">Один домен на строку.</span>
       </label>
       <Field label="Корневой каталог сайта" value={stringValue(value.root)} onChange={(next) => onChange({ ...value, root: next })} placeholder="." />
@@ -517,6 +519,11 @@ function EmptySites() {
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+}
+
+function normalizeConfigDraft(draft: Draft): Draft {
+  if (!Array.isArray(draft.domains)) return draft
+  return { ...draft, domains: draft.domains.map((domain) => String(domain).trim()).filter(Boolean) }
 }
 
 function defaultConfig(appType: ApplicationType): Draft {
