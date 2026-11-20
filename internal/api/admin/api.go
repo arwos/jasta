@@ -187,11 +187,8 @@ type loginParams struct {
 	SecondFactor string `json:"second_factor"`
 }
 
-type refreshParams struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-func (a *Api) login(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {
+func (a *Api) login(ctx context.Context, wc web.Ctx, raw json.RawMessage) (any, error) {
+	setAuthResponseHeaders(wc)
 	var params loginParams
 	if decodeParams(raw, &params) != nil || params.Password == "" || params.SecondFactor == "" {
 		return nil, invalidParams()
@@ -203,35 +200,39 @@ func (a *Api) login(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, e
 		}
 		return nil, internalError()
 	}
+	setRefreshCookie(wc, tokens)
 	return tokens, nil
 }
 
-func (a *Api) refresh(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {
-	var params refreshParams
-	if decodeParams(raw, &params) != nil || params.RefreshToken == "" {
-		return nil, invalidParams()
+func (a *Api) refresh(ctx context.Context, wc web.Ctx, _ json.RawMessage) (any, error) {
+	setAuthResponseHeaders(wc)
+	cookie, err := refreshCookieFromRequest(wc)
+	if err != nil {
+		clearRefreshCookie(wc)
+		return nil, unauthorized()
 	}
-	tokens, err := a.auth.Refresh(ctx, a.database.Tag("master"), params.RefreshToken)
+	tokens, err := a.auth.Refresh(ctx, a.database.Tag("master"), cookie.Value)
 	if err != nil {
 		if errors.Is(err, session.ErrInvalidCredentials) {
+			clearRefreshCookie(wc)
 			return nil, unauthorized()
 		}
 		return nil, internalError()
 	}
+	setRefreshCookie(wc, tokens)
 	return tokens, nil
 }
 
-func (a *Api) logout(ctx context.Context, wc web.Ctx, raw json.RawMessage) (any, error) {
-	if err := a.checkOwnerSession(ctx, wc); err != nil {
+func (a *Api) logout(ctx context.Context, wc web.Ctx, _ json.RawMessage) (any, error) {
+	setAuthResponseHeaders(wc)
+	claims, err := a.ownerClaims(ctx, wc.Header().Get("Authorization"))
+	if err != nil {
 		return nil, err
 	}
-	var params refreshParams
-	if decodeParams(raw, &params) != nil || params.RefreshToken == "" {
-		return nil, invalidParams()
-	}
-	if err := a.auth.Logout(ctx, a.database.Tag("master"), params.RefreshToken); err != nil {
+	if err = a.auth.RevokeSession(ctx, a.database.Tag("master"), claims.SessionID); err != nil {
 		return nil, internalError()
 	}
+	clearRefreshCookie(wc)
 	return map[string]bool{"ok": true}, nil
 }
 

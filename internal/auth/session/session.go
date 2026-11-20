@@ -50,8 +50,8 @@ type Manager struct {
 type Tokens struct {
 	AccessToken      string    `json:"access_token"`
 	AccessExpiresAt  time.Time `json:"access_expires_at"`
-	RefreshToken     string    `json:"refresh_token"`
-	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
+	RefreshToken     string    `json:"-"`
+	RefreshExpiresAt time.Time `json:"-"`
 }
 
 type AccessClaims struct {

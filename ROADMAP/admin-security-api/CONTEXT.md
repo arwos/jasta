@@ -25,7 +25,7 @@
 - Локальный TOTP-секрет шифруется AES-256-GCM; ключ берётся из `/etc/jasta/master.key` (raw 32 bytes или 64 hex characters), файл должен принадлежать root и иметь режим `0600`/`0640`.
 - Bootstrap: `jasta admin owner-bootstrap` (интерактивный скрытый ввод пароля, затем подтверждение TOTP до записи владельца). Сброс: `jasta admin owner-reset` с явным вводом `RESET`. Команды требуют интерактивный терминал.
 - Пароль хранится как Argon2id (64 MiB, 3 итерации, 2 потока); recovery-коды — случайные 128-битные значения с SHA-256 хэшами и одноразовым атомарным потреблением.
-- Учитывать CSRF и cookie flags, если токены кладутся в cookie; при Bearer-токене ограничить CORS admin origin и проверять WebSocket Origin.
+- Refresh-cookie защищена от чтения из JavaScript через HttpOnly и от кросс-сайтовых запросов через SameSite=Strict; cookie host-only, ограничена `/jsonrpc`, Secure для HTTPS. Auth ответы запрещают кэширование. Access JWT остаётся Bearer credential в памяти клиента; WebSocket origin проверяется отдельно.
 - Логировать тип и ID операции, исключая пароли, TOTP, tokens, source credentials и signed URLs.
 
 ## Выполнено
@@ -35,15 +35,15 @@
 
 ## F04-T03: JSON-RPC контракт
 
-Admin принимает JSON-RPC POST на `/jsonrpc` своего Goppy server tag. Bootstrap/reset владельца остаются только локальными CLI-командами. Токены передаются заголовком `Authorization: Bearer <access_token>`; cookies и CORS credentials не используются. `auth.login` и `auth.refresh` публичные, `auth.logout` требует активный access token, остальные методы требуют активный owner session. Каждая защищённая команда проверяет JWT и строку `auth_sessions` в SQLite: ротация refresh и logout сразу прекращают доступ старого access JWT.
+Admin принимает JSON-RPC POST на `/jsonrpc` своего Goppy server tag. Bootstrap/reset владельца остаются только локальными CLI-командами. Access JWT передаётся заголовком `Authorization: Bearer <access_token>` и хранится только в памяти UI. Refresh-токен передаётся только в host-only cookie `jasta_admin_refresh`: `HttpOnly`, `SameSite=Strict`, `Path=/jsonrpc`, `Secure` для HTTPS; cookie истекает вместе с абсолютным сроком refresh-сессии. Auth-ответы выставляют `Cache-Control: no-store`. `auth.login` и `auth.refresh` публичные; login и refresh возвращают только access token, refresh ротирует cookie. `auth.logout` требует активный access token, отзывает его session и очищает cookie. Остальные методы требуют активный owner session. Каждая защищённая команда проверяет JWT и строку `auth_sessions` в SQLite: ротация refresh и logout сразу прекращают доступ старого access JWT.
 
 Методы, параметры и ответы:
 
 | Метод | Доступ | Параметры | Ответ |
 |---|---|---|---|
-| `auth.login` | публичный | `{password, second_factor}`; second_factor — TOTP или recovery code | `Tokens`: access/refresh token и сроки действия |
-| `auth.refresh` | публичный | `{refresh_token}` | новая пара `Tokens`; старый refresh и его access session отзываются |
-| `auth.logout` | owner bearer | `{refresh_token}` | `{ok:true}`; отзывает указанную сессию и её descendants |
+| `auth.login` | публичный | `{password, second_factor}`; second_factor — TOTP или recovery code | `{access_token, access_expires_at}` и refresh cookie |
+| `auth.refresh` | публичный | `{}`; refresh cookie передаётся браузером | `{access_token, access_expires_at}` и ротированная refresh cookie; старая refresh-сессия отзывается |
+| `auth.logout` | owner bearer | `{}`; refresh cookie очищается | `{ok:true}`; отзывает сессию из access JWT |
 | `auth.me` | owner bearer | `{}` | `{subject:"owner"}` |
 | `sites.create` | owner bearer | `{name, app_type, config}` | `SiteSummary`; создаёт сайт с первичным черновым снимком и уникальными доменами |
 | `sites.list` | owner bearer | `{}` | массив `SiteSummary`: id, name, app_type, domains, timestamps, active_release_id |

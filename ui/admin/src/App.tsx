@@ -4,16 +4,37 @@ import Dashboard from './Dashboard'
 
 function App() {
   const [authenticated, setAuthenticated] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [restoreError, setRestoreError] = useState('')
 
   useEffect(() => {
+    let current = true
     const handleExpiredSession = () => {
       setAuthenticated(false)
       setSessionExpired(true)
     }
     window.addEventListener('jasta:session-expired', handleExpiredSession)
-    return () => window.removeEventListener('jasta:session-expired', handleExpiredSession)
+    void adminApi.restoreSession()
+      .then((restored) => {
+        if (current) setAuthenticated(restored)
+      })
+      .catch((error: unknown) => {
+        if (!current) return
+        setRestoreError(error instanceof AdminApiError ? error.message : 'Не удалось восстановить сессию.')
+      })
+      .finally(() => {
+        if (current) setCheckingSession(false)
+      })
+    return () => {
+      current = false
+      window.removeEventListener('jasta:session-expired', handleExpiredSession)
+    }
   }, [])
+
+  if (checkingSession) {
+    return <main aria-live="polite" className="grid min-h-screen place-items-center bg-[#f3f5f8] p-4 text-sm text-slate-600">Проверяем сессию…</main>
+  }
 
   if (authenticated) {
     return <Welcome onLogout={async () => {
@@ -22,16 +43,17 @@ function App() {
     }} />
   }
 
-  return <LoginForm sessionExpired={sessionExpired} onAuthenticated={() => {
+  return <LoginForm initialError={restoreError} sessionExpired={sessionExpired} onAuthenticated={() => {
     setSessionExpired(false)
+    setRestoreError('')
     setAuthenticated(true)
   }} />
 }
 
-function LoginForm({ onAuthenticated, sessionExpired }: { onAuthenticated: () => void; sessionExpired: boolean }) {
+function LoginForm({ onAuthenticated, sessionExpired, initialError }: { onAuthenticated: () => void; sessionExpired: boolean; initialError: string }) {
   const [password, setPassword] = useState('')
   const [secondFactor, setSecondFactor] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(initialError)
   const [pending, setPending] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {

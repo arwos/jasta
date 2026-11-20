@@ -1,6 +1,6 @@
 # QA F06 — React-админка
 
-F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified. F06-T05 has mocked browser coverage for source CRUD, secret omission/edit reset, self-signed and Let’s Encrypt actions, progress, and safe ACME failure display; real Nginx/ACME issuance is not exercised.
+F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified. F06-T05 has mocked browser coverage for source CRUD, secret omission/edit reset, self-signed and Let’s Encrypt actions, progress, and safe ACME failure display; real Nginx/ACME issuance is not exercised. F06-T06 implements cookie-backed session restore and passes frontend/build checks; end-to-end cookie flags, login/refresh rotation, reload restoration, and logout revocation remain unverified.
 
 ## Сценарии
 
@@ -8,7 +8,8 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - [x] Embedded frontend returns index on admin host and SPA routes; rejects other hosts and does not shadow API paths.
 - [x] Desktop and 390px viewport render the owner login without horizontal overflow; password/TOTP inputs have labels and visible-focus styles.
 - Verify successful/failed password+TOTP login, access expiry refresh/rotation, refresh expiry, and logout revocation against a running admin service.
-- [x] Source/build review confirms access and refresh tokens exist only in the `AdminApi` instance, with no browser storage or console logging. Access refreshes proactively and after 401; logout calls backend revocation.
+- [x] F06-T02 source/build review confirmed the initial access/refresh tokens existed only in the `AdminApi` instance, with no browser storage or console logging.
+- [ ] F06-T06 verify login/refresh set a host-only HttpOnly SameSite=Strict cookie with Path `/jsonrpc`, Secure on HTTPS, no-store responses, and no refresh token in JSON; verify reload restores, expiry/revocation returns to login, and logout clears/revokes the cookie session.
 - Owner bootstrap/recovery codes remain one-time CLI output; UI does not receive or re-display them. Local CLI reset is the recovery path.
 - [x] Create all four application types; config update saves a draft revision, rejects domain conflicts without partial save or activation, and config read removes absolute release paths.
 - [x] Domain/TLS table renders registered site domains and certificate issuer/status/expiry; missing certificates have an explicit state.
@@ -64,3 +65,7 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./ui/admin` — PASS; embedded frontend package compiles with the new bundle (2026-11-20; F06-T05).
 - `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f06-t05 ./cmd/jasta` — PASS; GVM printed a non-fatal warning because its stat cache is read-only (2026-11-20; F06-T05).
 - Playwright with mocked JSON-RPC/WebSocket — PASS: source create/update/delete, secret not rendered and edit fields reset; self-signed issuance; Let’s Encrypt job completion and mapped `acme_failed` error; 390px document width equals viewport. No live Nginx or ACME CA was contacted (2026-11-20; F06-T05).
+- `pnpm lint` — PASS, 0 warnings (2026-11-20; F06-T06).
+- `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T06).
+- `GOCACHE=/tmp/jasta-go-cache go build -mod=readonly -o /tmp/jasta-auth-cookie-check ./cmd/jasta` — PASS, exit 0; GVM printed a non-fatal warning because its stat cache is read-only (2026-11-20; F06-T06).
+- `git diff --check` — PASS (2026-11-20; F06-T06).

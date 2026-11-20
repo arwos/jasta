@@ -1,8 +1,6 @@
 type TokenPair = {
   access_token: string
   access_expires_at: string
-  refresh_token: string
-  refresh_expires_at: string
 }
 
 type RpcErrorShape = {
@@ -123,6 +121,18 @@ class AdminApi {
   private refreshing: Promise<void> | null = null
   private refreshTimer: ReturnType<typeof setTimeout> | null = null
 
+  async restoreSession(): Promise<boolean> {
+    try {
+      await this.refreshAccessToken(false)
+      return true
+    } catch (error) {
+      if (error instanceof AdminApiError && error.code === -32001) {
+        return false
+      }
+      throw error
+    }
+  }
+
   async login(password: string, secondFactor: string): Promise<void> {
     const tokens = await this.request<TokenPair>('auth.login', {
       password,
@@ -139,19 +149,15 @@ class AdminApi {
   }
 
   async logout(): Promise<void> {
-    const refreshToken = this.tokens?.refresh_token
-    if (!refreshToken) {
+    const current = this.tokens
+    if (!current) {
       this.clear()
       return
     }
 
     try {
-      const current = this.tokens
-      if (!current) {
-        return
-      }
       try {
-        await this.request<{ ok: boolean }>('auth.logout', { refresh_token: refreshToken }, current.access_token)
+        await this.request<{ ok: boolean }>('auth.logout', {}, current.access_token)
       } catch (error) {
         if (!(error instanceof AdminApiError) || error.code !== -32001) {
           throw error
@@ -159,7 +165,7 @@ class AdminApi {
         await this.refreshAccessToken()
         const refreshed = this.tokens
         if (refreshed) {
-          await this.request<{ ok: boolean }>('auth.logout', { refresh_token: refreshed.refresh_token }, refreshed.access_token)
+          await this.request<{ ok: boolean }>('auth.logout', {}, refreshed.access_token)
         }
       }
     } finally {
@@ -385,25 +391,19 @@ class AdminApi {
     return this.call('sites.config.update', { site_id: siteID, config })
   }
 
-  private async refreshAccessToken(): Promise<void> {
+  private async refreshAccessToken(notifyExpired = true): Promise<void> {
     if (this.refreshing) {
       return this.refreshing
     }
-    const refreshToken = this.tokens?.refresh_token
-    if (!refreshToken) {
-      this.clear()
-      throw new AdminApiError('Сессия завершена. Войдите снова.', -32001)
-    }
-
-    this.refreshing = this.request<TokenPair>('auth.refresh', {
-      refresh_token: refreshToken,
-    })
+    this.refreshing = this.request<TokenPair>('auth.refresh', {})
       .then((tokens) => {
         this.setTokens(tokens)
       })
       .catch((error: unknown) => {
         this.clear()
-        window.dispatchEvent(new Event('jasta:session-expired'))
+        if (notifyExpired) {
+          window.dispatchEvent(new Event('jasta:session-expired'))
+        }
         throw error
       })
       .finally(() => {
@@ -437,7 +437,7 @@ class AdminApi {
         method: 'POST',
         credentials: 'same-origin',
         headers,
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        body: JSON.stringify([{ jsonrpc: '2.0', id, method, params }]),
       })
     } catch {
       throw new AdminApiError('Не удалось связаться с сервером. Проверьте подключение.')
