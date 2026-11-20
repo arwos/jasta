@@ -55,16 +55,19 @@ Admin принимает JSON-RPC POST на `/jsonrpc` своего Goppy server
 | `sources.create` | owner bearer | `{name, url, auth_type, username?, password?, bearer_token?}` | `{id, name, auth_type}` |
 | `sources.update` | owner bearer | те же поля и обязательный `id` | `{id, name, auth_type}` |
 | `sources.delete` | owner bearer | `{id}` | `{ok:true}` |
+| `releases.create` | owner bearer | `{site_id, source_id?, config}` | `{job_id, status, error_code?, release?}`; создаёт готовый, неактивный релиз из выбранного source; Redirect принимает только config и не принимает source |
 | `releases.history` | owner bearer | `{site_id}` | история, активная пара и занимаемое место |
 | `releases.activate` | owner bearer | `{site_id, release_id}` | `{site_id, release_id, snapshot_revision}` |
 | `releases.rollback` | owner bearer | `{site_id, release_id}` | `{site_id, release_id, snapshot_revision}` |
 | `certificates.list` | owner bearer | `{}` | id, domain, issuer, status, validity; файловые пути и ключи не возвращаются |
 
-Ошибки JSON-RPC: `-32602` — отсутствующие, неизвестные или некорректные параметры; `-32001` — неверные credentials или недействительная owner session; `-32004` — запрошенный сайт/config/source отсутствует или релиз не удалось активировать; `-32009` — имя source занято либо запись source отклонена хранилищем; `-32603` — внутренняя ошибка без текста БД/файловой системы. Неизвестный метод получает стандартную Goppy ошибку unsupported method. Ошибки валидации конфигурации намеренно не возвращают внутренние пути.
+Ошибки JSON-RPC: `-32602` — отсутствующие, неизвестные или некорректные параметры; `-32001` — неверные credentials или недействительная owner session; `-32004` — запрошенный сайт/config/source отсутствует или релиз не удалось активировать; `-32009` — имя source занято либо запись source отклонена хранилищем; `-32603` — внутренняя ошибка без текста БД/файловой системы. Неизвестный метод получает стандартную Goppy ошибку unsupported method. Ошибки валидации конфигурации намеренно не возвращают внутренние пути. `releases.create` возвращает терминальный `status`; ошибки загрузки, проверки и сборки используют только стабильные `error_code` (`source_fetch_failed`, `invalid_archive`, `build_failed`) и публикуют переходы job в WebSocket без свободного текста ошибки.
 
 Registry write methods принимают только HTTPS URL без userinfo/fragment и проверяют сочетание `auth_type`/credentials через контракт `archive.ValidateSource`. Query из URL и JSON с Basic/Bearer credentials хранятся в `url_query_ciphertext` и `credentials_ciphertext` под AES-GCM ключом `/etc/jasta/master.key`; основной URL в SQLite сохраняется без query. `LoadSource` расшифровывает значения только для использования внутри admin и возвращает несериализуемый `archive.Source`. Ответы API и список источников не содержат открытых секретов; fetch повторно выполняет DNS/IP/redirect проверки непосредственно перед сетевым запросом.
 
 F04-T03 подключает read/validate и lifecycle методов, поддержанных текущими хранилищем и deployment-сервисами, а также полный CRUD registry metadata/credentials. Изменение config активного сайта происходит через создание релиза с config snapshot и его активацию; archive upload в multipart добавляется в F04-T05. Выпуск/продление/удаление сертификатов требуют ACME/Nginx потоков и добавляются в F05. Bootstrap по HTTP намеренно отсутствует.
+
+F06-T04 добавляет `releases.create` для скачивания архива сохранённого registry source и создания config-only релиза Redirect. URL должен быть HTTPS и иметь расширение `.zip` или `.tar.gz`; fetch использует те же лимиты, таймауты и DNS/IP/redirect safeguards, что и библиотека archive. Контент и config snapshot сохраняются как неактивный релиз; активация/rollback остаются отдельными операциями. Multipart upload остаётся отдельным `/uploads` endpoint.
 
 ## F04-T04: прогресс операций через WebSocket
 

@@ -44,10 +44,62 @@ export type CertificateSummary = {
   not_after?: string
 }
 
+export type RegistrySource = {
+  id: string
+  name: string
+  auth_type: 'none' | 'basic' | 'bearer' | 'query'
+  updated_at: string
+}
+
+export type ReleaseRecord = {
+  id: string
+  config_snapshot_id: string
+  config_revision: number
+  source_kind: 'upload' | 'url' | 'config'
+  archive_name?: string
+  status: string
+  created_at: string
+  active: boolean
+  disk_bytes: number
+}
+
+export type ReleaseHistory = {
+  site_id: string
+  current_release_id?: string
+  current_config_snapshot_id?: string
+  current_config_revision?: number
+  total_bytes: number
+  releases: ReleaseRecord[]
+}
+
+export type JobProgress = {
+  sequence: number
+  job_id: string
+  kind: string
+  stage: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+  progress: number
+  error_code?: string
+  created_at: string
+}
+
+export type CreateReleaseResult = {
+  job_id: string
+  status: 'succeeded' | 'failed'
+  error_code?: string
+  release?: {
+    id: string
+    site_id: string
+    config_snapshot_id: string
+    created_at: string
+  }
+}
+
 export class AdminApiError extends Error {
   constructor(
     message: string,
     readonly code?: number,
+    readonly jobID?: string,
   ) {
     super(message)
     this.name = 'AdminApiError'
@@ -151,6 +203,144 @@ class AdminApi {
     return this.call('certificates.list', {})
   }
 
+  listSources(): Promise<RegistrySource[]> {
+    return this.call('sources.list', {})
+  }
+
+  releaseHistory(siteID: string): Promise<ReleaseHistory> {
+    return this.call('releases.history', { site_id: siteID })
+  }
+
+  createRelease(siteID: string, sourceID: string, config: Record<string, unknown>): Promise<CreateReleaseResult> {
+    return this.call('releases.create', { site_id: siteID, source_id: sourceID, config })
+  }
+
+  async uploadArchive(siteID: string, config: Record<string, unknown>, file: File): Promise<{ job_id: string; release: CreateReleaseResult['release'] }> {
+    const form = new FormData()
+    form.set('site_id', siteID)
+    form.set('config', JSON.stringify(config))
+    form.set('archive', file, file.name)
+    const response = await this.authenticatedFetch('/uploads', { method: 'POST', body: form })
+    const body: unknown = await response.json().catch(() => null)
+    if (!response.ok) {
+      const details = objectValue(body)
+      throw new AdminApiError(
+        typeof details.error === 'string' ? details.error : 'Не удалось загрузить архив.',
+        undefined,
+        typeof details.job_id === 'string' ? details.job_id : undefined,
+      )
+    }
+    const value = objectValue(body)
+    if (typeof value.job_id !== 'string' || typeof value.release !== 'object' || value.release === null) {
+      throw new AdminApiError('Сервер вернул неполный ответ о публикации.')
+    }
+    return { job_id: value.job_id, release: value.release as CreateReleaseResult['release'] }
+  }
+
+  activateRelease(siteID: string, releaseID: string): Promise<{ site_id: string; release_id: string; snapshot_revision: number }> {
+    return this.call('releases.activate', { site_id: siteID, release_id: releaseID })
+  }
+
+  rollbackRelease(siteID: string, releaseID: string): Promise<{ site_id: string; release_id: string; snapshot_revision: number }> {
+    return this.call('releases.rollback', { site_id: siteID, release_id: releaseID })
+  }
+
+  async connectProgress(onEvent: (event: JobProgress) => void): Promise<() => void> {
+    let closed = false
+    let socket: WebSocket | null = null
+    let cursor = 0
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let reconnectAttempt = 0
+    let initialResolve: (() => void) | null = null
+    let initialReject: ((error: Error) => void) | null = null
+    const ready = new Promise<void>((resolve, reject) => {
+      initialResolve = resolve
+      initialReject = reject
+    })
+    let handshakeTimer: ReturnType<typeof setTimeout> | null = null
+
+    const connect = async (initial: boolean) => {
+      if (closed) return
+      try {
+        const current = this.tokens
+        if (!current) throw new AdminApiError('Сессия завершена. Войдите снова.', -32001)
+        if (Date.parse(current.access_expires_at) - Date.now() < 30_000) await this.refreshAccessToken()
+        const fresh = this.tokens
+        if (!fresh) throw new AdminApiError('Сессия завершена. Войдите снова.', -32001)
+
+        const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        socket = new WebSocket(`${scheme}//${window.location.host}/ws`)
+        socket.onopen = () => socket?.send(JSON.stringify({ e: 1, d: { access_token: fresh.access_token } }))
+        socket.onmessage = (message) => {
+          const frame = parseProgressFrame(message.data)
+          if (!frame) return
+          if (frame.e === 1) {
+            if (frame.err || !frame.d?.authenticated) {
+              initialReject?.(new AdminApiError('Не удалось подключиться к каналу прогресса.'))
+              socket?.close()
+              return
+            }
+            socket?.send(JSON.stringify({ e: 2, d: { after_sequence: cursor } }))
+            return
+          }
+          if (frame.e === 2 && frame.d && 'events' in frame.d && Array.isArray(frame.d.events)) {
+            for (const event of frame.d.events) acceptProgress(event)
+            if (typeof frame.d.cursor === 'number') cursor = Math.max(cursor, frame.d.cursor)
+            reconnectAttempt = 0
+            initialResolve?.()
+            initialResolve = null
+            initialReject = null
+            return
+          }
+          if (frame.e === 100 && frame.d) acceptProgress(frame.d as JobProgress)
+        }
+        socket.onerror = () => {
+          if (initial) initialReject?.(new AdminApiError('Не удалось подключиться к каналу прогресса.'))
+        }
+        socket.onclose = () => {
+          if (closed) return
+          if (initial) initialReject?.(new AdminApiError('Соединение с каналом прогресса закрыто.'))
+          const delay = Math.min(30_000, 500 * 2 ** reconnectAttempt++)
+          reconnectTimer = setTimeout(() => { void connect(false) }, delay)
+        }
+      } catch (error) {
+        if (initial) initialReject?.(error instanceof Error ? error : new Error('Progress connection failed'))
+        else if (!closed) {
+          const delay = Math.min(30_000, 500 * 2 ** reconnectAttempt++)
+          reconnectTimer = setTimeout(() => { void connect(false) }, delay)
+        }
+      }
+    }
+
+    const acceptProgress = (event: JobProgress) => {
+      if (typeof event.sequence !== 'number' || typeof event.job_id !== 'string') return
+      if (event.sequence <= cursor) return
+      cursor = event.sequence
+      onEvent(event)
+    }
+
+    const close = () => {
+      closed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      socket?.close()
+    }
+    await connect(true)
+    try {
+      await Promise.race([
+        ready,
+        new Promise<void>((_, reject) => {
+          handshakeTimer = setTimeout(() => reject(new AdminApiError('Не удалось подключиться к каналу прогресса.')), 5000)
+        }),
+      ])
+    } catch (error) {
+      close()
+      throw error
+    } finally {
+      if (handshakeTimer) clearTimeout(handshakeTimer)
+    }
+    return close
+  }
+
   validateSiteConfiguration(appType: ApplicationType, config: Record<string, unknown>): Promise<{ valid: boolean }> {
     return this.call('sites.config.validate', { app_type: appType, config })
   }
@@ -235,6 +425,45 @@ class AdminApi {
     }
     return reply.result
   }
+
+  private async authenticatedFetch(path: string, init: RequestInit): Promise<Response> {
+    let current = this.tokens
+    if (!current) throw new AdminApiError('Требуется вход в систему', -32001)
+    const send = (token: string) => {
+      const headers = new Headers(init.headers)
+      headers.set('Authorization', `Bearer ${token}`)
+      return fetch(path, { ...init, credentials: 'same-origin', headers })
+    }
+    let response = await send(current.access_token)
+    if (response.status === 401) {
+      await this.refreshAccessToken()
+      current = this.tokens
+      if (!current) throw new AdminApiError('Сессия завершена. Войдите снова.', -32001)
+      response = await send(current.access_token)
+    }
+    return response
+  }
+}
+
+type ProgressFrame = {
+  e: number
+  d?: Record<string, unknown>
+  err?: string
+}
+
+function parseProgressFrame(value: unknown): ProgressFrame | null {
+  if (typeof value !== 'string') return null
+  try {
+    const frame: unknown = JSON.parse(value)
+    if (typeof frame !== 'object' || frame === null || !('e' in frame) || typeof frame.e !== 'number') return null
+    return frame as ProgressFrame
+  } catch {
+    return null
+  }
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : {}
 }
 
 function extractReply<T>(body: unknown, id: string): RpcReply<T> {

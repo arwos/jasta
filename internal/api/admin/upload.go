@@ -167,16 +167,8 @@ func (a *Api) uploadArchive(ctx web.Ctx) {
 }
 
 func (a *Api) authenticateHTTPBearer(ctx context.Context, authorization string) (session.AccessClaims, error) {
-	parts := strings.Fields(authorization)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || a.auth == nil {
-		return session.AccessClaims{}, errors.New("unauthorized")
-	}
-	claims, err := a.auth.VerifyAccess(parts[1])
+	claims, err := a.ownerClaims(ctx, authorization)
 	if err != nil {
-		return session.AccessClaims{}, errors.New("unauthorized")
-	}
-	active, err := a.auth.SessionActive(ctx, a.database.Tag("master"), claims.SessionID)
-	if err != nil || !active {
 		return session.AccessClaims{}, errors.New("unauthorized")
 	}
 	return claims, nil

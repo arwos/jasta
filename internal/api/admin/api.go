@@ -30,17 +30,18 @@ import (
 )
 
 type Api struct {
-	conf          Config
-	pool          web.ServerPool
-	database      orm.ORM
-	auth          *session.Manager
-	secretCodec   *aesgcm.Codec
-	wsServer      ws.Server
-	jobs          *jobs.Manager
-	wsClients     sync.Map
-	nginxRunner   nginx.Runner
-	certificateMu sync.Mutex
-	nginxConfigMu sync.Mutex
+	conf           Config
+	pool           web.ServerPool
+	database       orm.ORM
+	auth           *session.Manager
+	archiveFetcher ArchiveFetcher
+	secretCodec    *aesgcm.Codec
+	wsServer       ws.Server
+	jobs           *jobs.Manager
+	wsClients      sync.Map
+	nginxRunner    nginx.Runner
+	certificateMu  sync.Mutex
+	nginxConfigMu  sync.Mutex
 }
 
 var (
@@ -111,6 +112,7 @@ func (a *Api) JSONRPCApiHandlers() map[string]jsonrpc.THandleFunc {
 		"sites.config.get":               a.protect(a.getSiteConfig),
 		"sites.config.validate":          a.protect(a.validateSiteConfig),
 		"sites.config.update":            a.protect(a.updateSiteConfig),
+		"releases.create":                a.protect(a.createRelease),
 		"sources.list":                   a.protect(a.listSources),
 		"sources.create":                 a.protect(a.createSource),
 		"sources.update":                 a.protect(a.updateSource),
@@ -135,22 +137,27 @@ func (a *Api) protect(next jsonrpc.THandleFunc) jsonrpc.THandleFunc {
 }
 
 func (a *Api) checkOwnerSession(ctx context.Context, wc web.Ctx) error {
-	value := strings.Fields(wc.Header().Get("Authorization"))
+	_, err := a.ownerClaims(ctx, wc.Header().Get("Authorization"))
+	return err
+}
+
+func (a *Api) ownerClaims(ctx context.Context, authorization string) (session.AccessClaims, error) {
+	value := strings.Fields(authorization)
 	if len(value) != 2 || !strings.EqualFold(value[0], "Bearer") {
-		return unauthorized()
+		return session.AccessClaims{}, unauthorized()
 	}
 	claims, err := a.auth.VerifyAccess(value[1])
 	if err != nil {
-		return unauthorized()
+		return session.AccessClaims{}, unauthorized()
 	}
 	active, err := a.auth.SessionActive(ctx, a.database.Tag("master"), claims.SessionID)
 	if err != nil {
-		return internalError()
+		return session.AccessClaims{}, internalError()
 	}
 	if !active {
-		return unauthorized()
+		return session.AccessClaims{}, unauthorized()
 	}
-	return nil
+	return claims, nil
 }
 
 type loginParams struct {

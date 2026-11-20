@@ -1,6 +1,6 @@
 # QA F06 — React-админка
 
-F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests.
+F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified.
 
 ## Сценарии
 
@@ -13,6 +13,8 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - [x] Create all four application types; config update saves a draft revision, rejects domain conflicts without partial save or activation, and config read removes absolute release paths.
 - [x] Domain/TLS table renders registered site domains and certificate issuer/status/expiry; missing certificates have an explicit state.
 - [x] Playwright with mocked JSON-RPC covers login, server validation error display, config draft save, create form selection for all four app types, redirect creation, TLS table, and 390px/1440px widths without overflow or console errors.
+- [x] API test covers owner-protected registry release creation using an injected fetcher, configured archive limits, release history metadata, Redirect config-only release, and a stable source-fetch error without leaking details.
+- [x] Playwright with mocked JSON-RPC/multipart covers archive upload, URL-source selection and request payload, success notice, refreshed release history, active release display, explicit rollback confirmation, and 390px/1440px document widths without horizontal overflow. In this run `/ws` was unavailable: the UI continued after its handshake timeout and displayed the progress-unavailable notice; the mocked run does not verify live progress/reconnect.
 - Live browser flow against a running `jasta admin` with SQLite, owner bootstrap, and real authenticated JSON-RPC remains a deployment integration check.
 - Responsive layout на узком и широком viewport; keyboard navigation, видимый focus, labels, ошибки форм.
 - Login: пароль/TOTP, некорректный код, expired JWT, refresh success/failure, logout.
@@ -51,3 +53,7 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f06-t03 ./cmd/jasta` — PASS, with a non-fatal GVM stat-cache warning because its cache is read-only (2026-11-20; F06-T03).
 - Playwright mock-JSON-RPC scenario — PASS: validation error shown, draft save, all four type forms, redirect create, and TLS state at 390px and 1440px; no overflow or console errors (2026-11-20; F06-T03).
 - `git diff --check` — PASS (2026-11-20; F06-T03).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./internal/api/admin` — PASS; includes registry archive source, limit propagation, Redirect config-only release, and safe fetch failure (2026-11-20; F06-T04).
+- `pnpm lint` — PASS, 0 warnings (2026-11-20; F06-T04).
+- `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T04).
+- Playwright with mocked JSON-RPC and multipart — PASS for archive upload, URL-source request payload, history refresh, explicit rollback confirmation, and 390px/1440px widths; `/ws` was unavailable and the fallback state was displayed. Browser reported the expected dev-server `/ws` connection warning and an unrelated missing `/favicon.ico` request (2026-11-20; F06-T04).

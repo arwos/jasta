@@ -4,11 +4,14 @@ import {
   adminApi,
   type ApplicationType,
   type CertificateSummary,
+  type RegistrySource,
+  type ReleaseHistory,
   type SiteConfiguration,
   type SiteSummary,
 } from './api'
+import DeploymentsSection from './DeploymentsSection'
 
-type Section = 'overview' | 'sites' | 'tls'
+type Section = 'overview' | 'sites' | 'deployments' | 'tls'
 type Draft = Record<string, unknown>
 
 const applicationNames: Record<ApplicationType, string> = {
@@ -21,6 +24,7 @@ const applicationNames: Record<ApplicationType, string> = {
 const sectionNames: Record<Section, string> = {
   overview: 'Обзор',
   sites: 'Сайты и конфигурация',
+  deployments: 'Публикации',
   tls: 'Домены и TLS',
 }
 
@@ -28,6 +32,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [section, setSection] = useState<Section>('overview')
   const [sites, setSites] = useState<SiteSummary[]>([])
   const [certificates, setCertificates] = useState<CertificateSummary[]>([])
+  const [sources, setSources] = useState<RegistrySource[]>([])
+  const [releaseHistory, setReleaseHistory] = useState<ReleaseHistory | null>(null)
   const [selectedID, setSelectedID] = useState('')
   const [configuration, setConfiguration] = useState<SiteConfiguration | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -38,11 +44,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     let current = true
-    Promise.all([adminApi.listSites(), adminApi.listCertificates()])
-      .then(([siteItems, certificateItems]) => {
+    Promise.all([adminApi.listSites(), adminApi.listCertificates(), adminApi.listSources()])
+      .then(([siteItems, certificateItems, sourceItems]) => {
         if (!current) return
         setSites(siteItems)
         setCertificates(certificateItems)
+        setSources(sourceItems)
         setSelectedID((previous) => previous || siteItems[0]?.id || '')
       })
       .catch((requestError: unknown) => {
@@ -71,10 +78,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return () => { current = false }
   }, [selectedID])
 
+  useEffect(() => {
+    if (!selectedID) return
+    let current = true
+    adminApi.releaseHistory(selectedID)
+      .then((value) => { if (current) setReleaseHistory(value) })
+      .catch((requestError: unknown) => { if (current) setError(errorMessage(requestError)) })
+    return () => { current = false }
+  }, [selectedID])
+
   const selectedSite = sites.find((site) => site.id === selectedID) ?? null
   const displayedConfiguration = configuration?.site_id === selectedID ? configuration : null
   const displayedDraft = displayedConfiguration ? draft : null
   const configLoading = Boolean(selectedID && !displayedConfiguration && !error && !loading)
+  const historyLoading = Boolean(selectedID && releaseHistory?.site_id !== selectedID && !error && !loading)
   const allDomains = sites.flatMap((site) => site.domains.map((domain) => ({ domain, site })))
 
   async function saveConfiguration(event: FormEvent<HTMLFormElement>) {
@@ -108,6 +125,24 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     setNotice('Сайт создан. Конфигурация сохранена как черновик; для публикации загрузите архив.')
     void adminApi.listSites().then(setSites).catch(() => undefined)
     return created
+  }
+
+  async function refreshReleaseData(siteID: string) {
+    const [nextHistory, nextSites] = await Promise.all([adminApi.releaseHistory(siteID), adminApi.listSites()])
+    setReleaseHistory(nextHistory)
+    setSites(nextSites)
+  }
+
+  async function activateRelease(siteID: string, releaseID: string) {
+    await adminApi.activateRelease(siteID, releaseID)
+    await refreshReleaseData(siteID)
+    setNotice(`Релиз ${releaseID} активирован.`)
+  }
+
+  async function rollbackRelease(siteID: string, releaseID: string) {
+    await adminApi.rollbackRelease(siteID, releaseID)
+    await refreshReleaseData(siteID)
+    setNotice(`Откат выполнен на релиз ${releaseID}. Контент и конфигурация восстановлены вместе.`)
   }
 
   return (
@@ -172,6 +207,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             onDraftChange={setDraft}
             onSubmit={saveConfiguration}
             onCreate={createSite}
+          />
+        ) : null}
+        {!loading && section === 'deployments' ? (
+          <DeploymentsSection
+            sites={sites}
+            selectedSite={selectedSite}
+            selectedID={selectedID}
+            onSelect={(id) => { setError(''); setNotice(''); setSelectedID(id) }}
+            configuration={displayedConfiguration}
+            sources={sources}
+            history={releaseHistory?.site_id === selectedID ? releaseHistory : null}
+            historyLoading={historyLoading}
+            onRefresh={refreshReleaseData}
+            onActivate={activateRelease}
+            onRollback={rollbackRelease}
           />
         ) : null}
         {!loading && section === 'tls' ? <TLSSection domains={allDomains} certificates={certificates} /> : null}
