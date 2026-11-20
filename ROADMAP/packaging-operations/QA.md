@@ -33,6 +33,7 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 - `scripts/build-deb.sh arm64` — корректно остановилась до Go сборки с сообщением о недостающем `aarch64-linux-gnu-gcc`; прямой вызов goppy без cross compiler ошибочно передавал ARM assembly системному x86 gcc.
 - `deb-builder build` с временной amd64-only копией `.deb.yaml` — PASS; `dpkg-deb --info`, `--field`, `--contents` и control archive подтвердили архитектуру, зависимости, maintainer scripts, список conffiles, пути и modes. Реальная установка/удаление не выполнялись.
 - `systemd-sysusers --dry-run init/jasta.sysusers` и `systemd-tmpfiles --create --dry-run --root=... init/jasta.tmpfiles` — PASS, включая создаваемый Nginx managed include.
+- Fake ACME permission test под `UMask=0077` подтвердил режимы traversal для HTTP-01 пути; Nginx group membership на реальном хосте не проверялась.
 - `systemd-analyze verify` на временных копиях двух units — PASS; в копиях `ExecStart` заменён на `/usr/bin/true`, а межсервисные зависимости убраны. Установленные units и реальный запуск сервисов не проверялись.
 - `systemd-sysusers --dry-run init/jasta.sysusers` и `systemd-tmpfiles --create --dry-run --root=... init/jasta.tmpfiles` разобрали декларации. Fake-root sysusers создал ожидаемые memberships. Применение tmpfiles-владельцев к fake root упёрлось в ограничения uid mapping.
 - `visudo -cf init/jasta-admin.sudoers` — правило разобрано; команда также вывела предупреждение, что `/etc/sudo.conf` в test host принадлежит uid 65534.

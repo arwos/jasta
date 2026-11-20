@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -42,6 +43,8 @@ func TestValidateLetsEncryptDomain(t *testing.T) {
 }
 
 func TestIssueLetsEncryptPublishesChallengeAndStoresCandidateSeparately(t *testing.T) {
+	oldUmask := syscall.Umask(0o077)
+	defer syscall.Umask(oldUmask)
 	ctx := context.Background()
 	root := filepath.Join(t.TempDir(), "certificates")
 	challengeRoot := filepath.Join(t.TempDir(), "challenges")
@@ -53,6 +56,7 @@ func TestIssueLetsEncryptPublishesChallengeAndStoresCandidateSeparately(t *testi
 		progress = append(progress, value)
 		return nil
 	})
+	syscall.Umask(oldUmask)
 	if err != nil {
 		t.Fatalf("IssueLetsEncrypt(): %v", err)
 	}
@@ -66,7 +70,7 @@ func TestIssueLetsEncryptPublishesChallengeAndStoresCandidateSeparately(t *testi
 		t.Fatalf("progress callbacks=%v", progress)
 	}
 	keyInfo, err := os.Stat(result.PrivateKeyPath)
-	if err != nil || keyInfo.Mode().Perm() != 0o640 {
+	if err != nil || keyInfo.Mode().Perm() != 0o600 {
 		t.Fatalf("private key stat=%v err=%v", keyInfo, err)
 	}
 	certificatePEM, err := os.ReadFile(result.CertificatePath)
@@ -163,6 +167,16 @@ func (*fakeACMEClient) Accept(context.Context, *acme.Challenge) (*acme.Challenge
 }
 
 func (f *fakeACMEClient) WaitAuthorization(context.Context, string) (*acme.Authorization, error) {
+	for path, want := range map[string]os.FileMode{
+		filepath.Dir(filepath.Dir(f.challengePath)): 0o750,
+		filepath.Dir(f.challengePath):               0o750,
+		f.challengePath:                             0o644,
+	} {
+		info, err := os.Stat(path)
+		if err != nil || info.Mode().Perm() != want {
+			return nil, errors.New("challenge path permissions do not allow Nginx access")
+		}
+	}
 	content, err := os.ReadFile(f.challengePath)
 	if err != nil || string(content) != "token.thumbprint" {
 		return nil, errors.New("challenge content was not published at Nginx root path")

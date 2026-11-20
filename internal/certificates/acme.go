@@ -132,6 +132,9 @@ func authorizeDomain(ctx context.Context, client ACMEClient, domain, challengeRo
 	if err := os.MkdirAll(challengeRoot, 0o750); err != nil {
 		return nil, fmt.Errorf("create HTTP-01 challenge root: %w", err)
 	}
+	if err := os.Chmod(challengeRoot, 0o2750); err != nil {
+		return nil, fmt.Errorf("set HTTP-01 challenge root permissions: %w", err)
+	}
 	order, err := client.AuthorizeOrder(ctx, acme.DomainIDs(domain))
 	if err != nil {
 		return nil, fmt.Errorf("create ACME order: %w", err)
@@ -181,6 +184,11 @@ func authorizeHTTP01(ctx context.Context, client ACMEClient, authorizationURL, d
 	challengePath := filepath.Join(challengeRoot, ".well-known", "acme-challenge", challenge.Token)
 	if err = os.MkdirAll(filepath.Dir(challengePath), 0o750); err != nil {
 		return fmt.Errorf("create HTTP-01 challenge path: %w", err)
+	}
+	for _, directory := range []string{filepath.Join(challengeRoot, ".well-known"), filepath.Dir(challengePath)} {
+		if err = os.Chmod(directory, 0o2750); err != nil {
+			return fmt.Errorf("set HTTP-01 challenge directory permissions: %w", err)
+		}
 	}
 	if err = writeChallengeFile(challengePath, []byte(response)); err != nil {
 		return fmt.Errorf("publish HTTP-01 challenge: %w", err)
@@ -415,7 +423,10 @@ func writeChallengeFile(path string, content []byte) error {
 	if err != nil {
 		return err
 	}
-	if _, err = file.Write(content); err == nil {
+	if err = file.Chmod(0o644); err == nil {
+		_, err = file.Write(content)
+	}
+	if err == nil {
 		err = file.Sync()
 	}
 	if closeErr := file.Close(); err == nil {

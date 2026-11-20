@@ -16,6 +16,7 @@ F05-T01 реализован как renderer, защищённая JSON-RPC ко
 - [x] Проверить, что сертификат admin-домена включается в следующую генерируемую Nginx конфигурацию, а protected RPC не раскрывает пути.
 - Unix-группа admin/Nginx для доступа к key mode 0640 проверяется вместе с установкой в F07-T01.
 - [x] Fake ACME flow проверяет публикацию ответа в точном URL path Nginx root, HTTP-01 validation, leaf SAN/public key/validity и удаление временного challenge.
+- [x] Fake ACME flow с `UMask=0077` проверяет, что challenge-каталоги сохраняют group traversal, а token-файл доступен Nginx worker.
 - [x] Let’s Encrypt rejects wildcard, local domains/IPs; terms acceptance is required; renewed metadata can restore the previous row.
 - [x] Certified public domains get HTTPS server blocks and HTTP→HTTPS redirects while keeping the HTTP-01 location ahead of redirect.
 - Verify actual issuance, staging/production CA interoperability, network failure, rate limit, reload failure and renewal on Debian/Ubuntu with reachable public DNS and port 80.
@@ -23,6 +24,7 @@ F05-T01 реализован как renderer, защищённая JSON-RPC ко
 
 ## Запуски
 
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./internal/certificates` — PASS; fake ACME test использует `UMask=0077` как admin systemd unit.
 - `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./internal/pkg/nginx ./internal/api/admin ./cmd/jasta` — PASS (2026-11-20).
 - `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./...` — PASS (2026-11-20).
 - `GOCACHE=/tmp/jasta-go-cache go test -race -count=1 ./internal/pkg/nginx ./internal/api/admin` — PASS (2026-11-20).
