@@ -9,6 +9,15 @@ http:
 
 admin:
     tag: main
+    master_key_path: /tmp/jasta-admin-dev-master.key
+    releases_root: /tmp/jasta-admin-dev-releases
+    reload_socket: /tmp/jasta-web-reload.sock
+    certificates_root: /tmp/jasta-admin-dev-certificates
+    nginx:
+        config_path: /tmp/jasta-admin-dev-nginx/jasta.conf
+        challenge_root: /tmp/jasta-admin-dev-challenges
+        nginx_binary: /bin/false
+        systemctl_binary: /bin/false
 
 sqlite:
     - tags: master
