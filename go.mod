@@ -3,7 +3,7 @@ module go.arwos.org/jasta
 go 1.26.11
 
 require (
-	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
+	github.com/boombuler/barcode v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/pquerna/otp v1.5.0

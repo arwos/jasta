@@ -1,9 +1,9 @@
 env: prod
 
 log:
-    file_path: /dev/stdout
+    file_path: /var/log/jasta.log
     format: string
-    level: 4
+    level: 2
 
 http:
     - addr: 127.0.0.1:15433
