@@ -3,6 +3,7 @@ module go.arwos.org/jasta
 go 1.26.8
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/pquerna/otp v1.5.0
 	go.osspkg.com/do v0.3.1
 	go.osspkg.com/encrypt v0.5.3

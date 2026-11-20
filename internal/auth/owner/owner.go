@@ -269,3 +269,9 @@ func recoveryCodeHash(code string) string {
 	digest := sha256.Sum256([]byte("jasta-owner-recovery-v1:" + normalized))
 	return hex.EncodeToString(digest[:])
 }
+
+// HashRecoveryCode returns the domain-separated digest used for one-time
+// recovery-code storage and comparison.
+func HashRecoveryCode(code string) string {
+	return recoveryCodeHash(code)
+}

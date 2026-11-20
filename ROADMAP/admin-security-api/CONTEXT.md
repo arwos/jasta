@@ -11,8 +11,11 @@
 ## Состояние и проверенные API ограничения
 
 - В текущем Goppy v3.2.3 есть JWT token service/middleware и JSON-RPC/WS transports в source tree.
-- Goppy JWT config default генерирует десять EdDSA key pairs в памяти. Для стабильных JWT и восстановления после рестарта настроить ключ явно; не использовать runtime defaults.
-- JWT middleware проверяет подпись/время, но приложение отдельно хранит refresh-сессии и обеспечивает отзыв через SQLite.
+- Goppy JWT config default генерирует десять EdDSA key pairs в памяти. Jasta не использует этот default: `internal/auth/session` задаёт один Ed25519 key, детерминированно выведенный HKDF-SHA256 из `/etc/jasta/master.key` с отдельными salt/info.
+- JWT issuer и audience фиксированы как `jasta-admin`; verifier дополнительно проверяет EdDSA, issuer, audience, время, `sub=owner`, UUID session ID и верхнюю границу lifetime.
+- Refresh-токен — случайные 256 бит; SQLite хранит только domain-separated SHA-256 hash. Rotation атомарно помечает старую строку отозванной и связывает её с новой, сохраняя исходный абсолютный срок 7 дней.
+- Login требует подтверждённого TOTP и принимает TOTP либо recovery code. Recovery code потребляется в той же транзакции, что и создание сессии.
+- Logout/revoke отзывает session и все её ротационные descendants, запрещая дальнейший refresh немедленно; выданный access JWT остаётся криптографически валиден до своей короткой 15-минутной границы, если вызывающий endpoint не проверяет session ID в БД.
 - SQLite driver и миграции доступны через Goppy ORM; база используется только admin.
 
 ## Безопасность
@@ -27,7 +30,8 @@
 
 ## Выполнено
 
-- F04-T01: CLI bootstrap/reset и owner primitives добавлены. Вход/JWT ещё не реализован; F04-T02 должен допускать вход только при `totp_confirmed = 1`.
+- F04-T01: CLI bootstrap/reset и owner primitives добавлены.
+- F04-T02: owner login, stable EdDSA JWT, persistent refresh rotation, logout и session revoke реализованы как auth primitives; HTTP/JSON-RPC wiring входит в F04-T03.
 
 ## Источники
 
