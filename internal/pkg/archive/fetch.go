@@ -64,6 +64,23 @@ func Fetch(ctx context.Context, source Source, options FetchOptions) (io.ReadClo
 	return fetch(ctx, source, options, net.DefaultResolver, nil)
 }
 
+// ValidateSource validates an archive source without resolving or connecting
+// to its host. Public-IP validation is performed by Fetch immediately before
+// each connection and after redirects.
+func ValidateSource(source Source) error {
+	requestURL, err := parseExternalURL(source.URL)
+	if err != nil {
+		return err
+	}
+	if err = validateCredentials(source); err != nil {
+		return err
+	}
+	if source.AuthType == AuthQuery && requestURL.RawQuery == "" {
+		return errors.New("query auth requires a signed query string")
+	}
+	return nil
+}
+
 func fetch(ctx context.Context, source Source, options FetchOptions, resolver ipResolver, dialOverride dialFunc) (io.ReadCloser, error) {
 	return fetchWithTransport(ctx, source, options, resolver, newFetchTransport(resolver, dialOverride))
 }

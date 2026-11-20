@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"go.osspkg.com/encrypt/aesgcm"
 	"go.osspkg.com/goppy/v3/plugins/orm"
 	"go.osspkg.com/goppy/v3/plugins/web"
 	"go.osspkg.com/goppy/v3/plugins/web/jsonrpc"
@@ -22,10 +23,11 @@ import (
 )
 
 type Api struct {
-	conf     Config
-	pool     web.ServerPool
-	database orm.ORM
-	auth     *session.Manager
+	conf        Config
+	pool        web.ServerPool
+	database    orm.ORM
+	auth        *session.Manager
+	secretCodec *aesgcm.Codec
 }
 
 func (a *Api) Up() error {
@@ -34,9 +36,14 @@ func (a *Api) Up() error {
 		return fmt.Errorf("load admin authentication key: %w", err)
 	}
 	a.auth, err = session.New(key)
+	if err != nil {
+		clear(key)
+		return fmt.Errorf("initialize admin authentication: %w", err)
+	}
+	a.secretCodec, err = aesgcm.New(key)
 	clear(key)
 	if err != nil {
-		return fmt.Errorf("initialize admin authentication: %w", err)
+		return fmt.Errorf("initialize registry secret encryption: %w", err)
 	}
 	route, ok := a.pool.ByTag(a.conf.Tag)
 	if !ok {
@@ -75,6 +82,9 @@ func (a *Api) JSONRPCApiHandlers() map[string]jsonrpc.THandleFunc {
 		"sites.config.get":      a.protect(a.getSiteConfig),
 		"sites.config.validate": a.protect(a.validateSiteConfig),
 		"sources.list":          a.protect(a.listSources),
+		"sources.create":        a.protect(a.createSource),
+		"sources.update":        a.protect(a.updateSource),
+		"sources.delete":        a.protect(a.deleteSource),
 		"releases.history":      a.protect(a.releaseHistory),
 		"releases.activate":     a.protect(a.activateRelease),
 		"releases.rollback":     a.protect(a.rollbackRelease),
