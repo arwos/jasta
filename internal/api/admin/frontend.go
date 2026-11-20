@@ -60,7 +60,7 @@ func (a *Api) serveFrontend(ctx web.Ctx) {
 		ctx.Response().WriteHeader(http.StatusOK)
 		return
 	}
-	ctx.Bytes(http.StatusOK, content)
+	ctx.Raw(http.StatusOK, contentType, content)
 }
 
 func adminFrontendHost(requestHost, configuredDomain string) bool {

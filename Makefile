@@ -30,20 +30,26 @@ pre-commit: lint build tests
 .PHONY: ci
 ci: install pre-commit
 
-.PHONY: run-web-local run-admin-local run_local
+.PHONY: run-web-local run-admin-local run-owner-bootstrap-local local-admin-key run_local
 # Run in separate terminals; start web before admin so active snapshots can sync.
 run-web-local:
 	go run ./cmd/jasta/main.go web --config=config/config.dev.yaml
 
-run-admin-local:
+local-admin-key:
 	@if [ ! -s /tmp/jasta-admin-dev-master.key ]; then \
 		key_tmp=$$(mktemp /tmp/jasta-admin-dev-master.XXXXXX) && \
-		trap 'rm -f "$$key_tmp"' EXIT && \
-		chown "$$(id -gn)":"$$(id -gn)" "$$key_tmp" && \
-		chmod 0640 "$$key_tmp" && \
-		dd if=/dev/urandom of="$$key_tmp" bs=32 count=1 status=none && \
-		ln "$$key_tmp" /tmp/jasta-admin-dev-master.key; \
+		trap 'sudo rm -f "$$key_tmp"' EXIT && \
+		sudo chown root:"$$(id -gn)" "$$key_tmp" && \
+		sudo chmod 0640 "$$key_tmp" && \
+		sudo dd if=/dev/urandom of="$$key_tmp" bs=32 count=1 status=none && \
+		sudo ln "$$key_tmp" /tmp/jasta-admin-dev-master.key; \
 	fi
+
+# Run once before run-admin-local; this command needs an interactive terminal.
+run-owner-bootstrap-local: local-admin-key
+	go run ./cmd/jasta/main.go admin owner-bootstrap --config=config/admin.dev.yaml --database=/tmp/jasta-admin-dev.sqlite --key-file=/tmp/jasta-admin-dev-master.key
+
+run-admin-local: local-admin-key
 	mkdir -p /tmp/jasta-admin-dev-nginx
 	go run ./cmd/jasta/main.go admin --config=config/admin.dev.yaml
 

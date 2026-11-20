@@ -11,6 +11,10 @@ http:
 
 admin:
     tag: main
+    archive:
+        max_archive_bytes: 104857600
+        max_unpacked_bytes: 1073741824
+        max_entries: 100000
     certificates_root: /var/lib/jasta/certificates
     content_group: jasta-content
     acme:
@@ -38,5 +42,5 @@ sqlite:
       cache: private
       mode: rwc
       journal: WAL
-      locking_mode: EXCLUSIVE
+      locking_mode: NORMAL
       other_params: _foreign_keys=on

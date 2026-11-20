@@ -30,7 +30,7 @@ func (a *Api) Up() error {
 
 	route.Use(
 		web.RecoveryMiddleware(),
-		web.ThrottlingMiddleware(min(a.conf.Throttling, 1)),
+		web.ThrottlingMiddleware(a.conf.Throttling),
 	)
 
 	route.Get("/", a.handler)

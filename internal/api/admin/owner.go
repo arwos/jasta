@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/boombuler/barcode/qr"
 	"go.osspkg.com/goppy/v3/pkg/console"
 	"go.osspkg.com/goppy/v3/plugin"
 	"golang.org/x/term"
@@ -52,7 +53,8 @@ func OwnerBootstrapCommand(ctx context.Context, _ plugin.DIResolver, setter cons
 		}
 		enrollment, err := owner.BeginEnrollment(issuer, account)
 		console.FatalIfErr(err, "begin TOTP enrollment")
-		console.Infof("Add this account to your authenticator before continuing:\n%s\nSecret: %s", enrollment.URL, enrollment.Secret)
+		console.Infof("Scan this QR code with your authenticator before continuing:")
+		console.FatalIfErr(printEnrollmentQRCode(enrollment.URL), "print TOTP QR code")
 		passcode, err := readLine("Enter the current six-digit authenticator code: ")
 		console.FatalIfErr(err, "read TOTP code")
 		codes, err := owner.Bootstrap(ctx, database.Tag("master"), password, enrollment.Secret, passcode, encryptionKey)
@@ -62,6 +64,41 @@ func OwnerBootstrapCommand(ctx context.Context, _ plugin.DIResolver, setter cons
 			console.Infof("%s", code)
 		}
 	})
+}
+
+func printEnrollmentQRCode(value string) error {
+	code, err := qr.Encode(value, qr.M, qr.Auto)
+	if err != nil {
+		return fmt.Errorf("encode enrollment URL: %w", err)
+	}
+
+	terminal, err := openTerminal()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = terminal.Close() }()
+
+	const quietZone = 4
+	bounds := code.Bounds()
+	for y := -quietZone; y < bounds.Dy()+quietZone; y++ {
+		var row strings.Builder
+		for x := -quietZone; x < bounds.Dx()+quietZone; x++ {
+			dark := false
+			if x >= 0 && x < bounds.Dx() && y >= 0 && y < bounds.Dy() {
+				red, green, blue, _ := code.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
+				dark = red+green+blue < 3*0x8000
+			}
+			if dark {
+				row.WriteString("██")
+			} else {
+				row.WriteString("  ")
+			}
+		}
+		if _, err = fmt.Fprintln(terminal, row.String()); err != nil {
+			return fmt.Errorf("write QR code to terminal: %w", err)
+		}
+	}
+	return nil
 }
 
 func OwnerResetCommand(ctx context.Context, _ plugin.DIResolver, setter console.CommandSetter) {
@@ -87,17 +124,36 @@ func OwnerResetCommand(ctx context.Context, _ plugin.DIResolver, setter console.
 }
 
 func requireTerminal() {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		console.Fatalf("this command requires an interactive terminal")
+	terminal, err := openTerminal()
+	if err != nil {
+		console.Fatalf("this command requires an interactive terminal: %v", err)
 	}
+	_ = terminal.Close()
+}
+
+func openTerminal() (*os.File, error) {
+	terminal, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return nil, fmt.Errorf("open controlling terminal: %w", err)
+	}
+	if !term.IsTerminal(int(terminal.Fd())) {
+		_ = terminal.Close()
+		return nil, errors.New("controlling terminal is not interactive")
+	}
+	return terminal, nil
 }
 
 func readPassword(prompt string) (string, error) {
-	if _, err := fmt.Fprint(os.Stdout, prompt); err != nil {
+	terminal, err := openTerminal()
+	if err != nil {
 		return "", err
 	}
-	password, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if _, printErr := fmt.Fprintln(os.Stdout); printErr != nil && err == nil {
+	defer func() { _ = terminal.Close() }()
+	if _, err := fmt.Fprint(terminal, prompt); err != nil {
+		return "", err
+	}
+	password, err := term.ReadPassword(int(terminal.Fd()))
+	if _, printErr := fmt.Fprintln(terminal); printErr != nil && err == nil {
 		err = printErr
 	}
 	if err != nil {
@@ -107,10 +163,15 @@ func readPassword(prompt string) (string, error) {
 }
 
 func readLine(prompt string) (string, error) {
-	if _, err := fmt.Fprint(os.Stdout, prompt); err != nil {
+	terminal, err := openTerminal()
+	if err != nil {
 		return "", err
 	}
-	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	defer func() { _ = terminal.Close() }()
+	if _, err := fmt.Fprint(terminal, prompt); err != nil {
+		return "", err
+	}
+	line, err := bufio.NewReader(terminal).ReadString('\n')
 	if err != nil && (err != io.EOF || line == "") {
 		return "", err
 	}

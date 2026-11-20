@@ -1,5 +1,5 @@
 log:
-    level: 4
+    level: 3
     file_path: /dev/stdout
     format: string
 
@@ -9,11 +9,16 @@ http:
 
 admin:
     tag: main
+    archive:
+        max_archive_bytes: 104857600
+        max_unpacked_bytes: 1073741824
+        max_entries: 100000
     master_key_path: /tmp/jasta-admin-dev-master.key
     releases_root: /tmp/jasta-admin-dev-releases
     reload_socket: /tmp/jasta-web-reload.sock
     certificates_root: /tmp/jasta-admin-dev-certificates
     nginx:
+        admin_domain: 127.0.0.1
         config_path: /tmp/jasta-admin-dev-nginx/jasta.conf
         challenge_root: /tmp/jasta-admin-dev-challenges
         nginx_binary: /bin/false
@@ -25,5 +30,5 @@ sqlite:
       cache: private
       mode: rwc
       journal: WAL
-      locking_mode: EXCLUSIVE
+      locking_mode: NORMAL
       other_params: _foreign_keys=on

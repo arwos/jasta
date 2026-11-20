@@ -14,7 +14,7 @@ func openAdminDatabase(ctx context.Context, path string) (orm.ORM, error) {
 	database := orm.New(ctx)
 	config := &sqlite.ConfigGroup{Pool: []sqlite.Config{{
 		Tags: "master", File: path, Cache: "private", Mode: "rwc", Journal: "WAL",
-		LockingMode: "EXCLUSIVE", OtherParams: "_foreign_keys=on",
+		LockingMode: "NORMAL", OtherParams: "_foreign_keys=on",
 	}}}
 	if err := database.ApplyConfig(sqlite.Name, config); err != nil {
 		database.Close()

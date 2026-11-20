@@ -27,7 +27,7 @@ func ImportConfigsCommand(ctx context.Context, _ plugin.DIResolver, setter conso
 			Cache:       "private",
 			Mode:        "rwc",
 			Journal:     "WAL",
-			LockingMode: "EXCLUSIVE",
+			LockingMode: "NORMAL",
 			OtherParams: "_foreign_keys=on",
 		}}}
 		console.FatalIfErr(database.ApplyConfig(sqlite.Name, dbConfig), "connect database")
