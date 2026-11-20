@@ -137,7 +137,9 @@ func (a *Api) uploadArchive(ctx web.Ctx) {
 	}
 	failed := func(stage string, progress int, code string) {
 		_, _ = a.jobs.Publish(context.Background(), jobID, jobs.Update{Stage: stage, Status: "failed", Progress: progress, ErrorCode: code})
-		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{"job_id": jobID, "error": "archive deployment failed"})
+		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"job_id": jobID, "error": "archive deployment failed", "error_code": code,
+		})
 	}
 	stagingDir, err := archive.Extract(file, format, a.conf.ReleasesRoot, limits)
 	if err != nil {

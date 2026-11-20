@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import {
   AdminApiError,
   adminApi,
+  type ApplicationType,
   type JobProgress,
   type RegistrySource,
   type ReleaseHistory,
@@ -68,7 +69,7 @@ function DeploymentsSection({ sites, selectedSite, selectedID, onSelect, configu
       const latest = events.filter((event) => event.job_id === result.job_id).at(-1)
       if (latest) setJob(latest)
       if (result.status === 'failed') {
-        setError(jobErrorMessage(result.error_code))
+        setError(jobErrorMessage(result.error_code, selectedSite.app_type, configuration))
       } else if (result.release) {
         setNotice(`Релиз ${result.release.id} собран и сохранён. Он начнёт обслуживаться после активации.`)
       } else {
@@ -79,7 +80,10 @@ function DeploymentsSection({ sites, selectedSite, selectedID, onSelect, configu
       })
     } catch (requestError) {
       if (requestError instanceof AdminApiError && requestError.jobID) setJobID(requestError.jobID)
-      setError(errorMessage(requestError))
+      const failureEvent = events.filter((event) => event.job_id === (requestError instanceof AdminApiError ? requestError.jobID : '') && event.status === 'failed').at(-1)
+      setError(failureEvent
+        ? jobErrorMessage(failureEvent.error_code, selectedSite.app_type, configuration)
+        : errorMessage(requestError, selectedSite.app_type, configuration))
     } finally {
       closeProgress?.()
       setBusy(false)
@@ -310,21 +314,40 @@ function shortID(value: string): string {
   return value.length > 14 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value
 }
 
-function jobErrorMessage(code?: string): string {
+function jobErrorMessage(code: string | undefined, appType?: ApplicationType, configuration?: SiteConfiguration | null): string {
   const labels: Record<string, string> = {
     source_fetch_failed: 'Не удалось скачать архив из выбранного источника.',
-    invalid_archive: 'Архив повреждён, превышает лимит или содержит недопустимые файлы.',
-    build_failed: 'Не удалось собрать релиз. Проверьте содержимое архива и конфигурацию.',
+    invalid_archive: 'Архив не прошёл проверку. Проверьте формат ZIP/TAR.GZ, лимиты размера и отсутствие небезопасных или повторяющихся путей.',
   }
-  return labels[code || ''] || 'Задание завершилось с ошибкой.'
+  if (code === 'build_failed') {
+    const root = configString(configuration?.config.root) || '.'
+    const pages = configObject(configuration?.config.pages)
+    const index = configString(pages.index) || 'index.html'
+    const notFound = configString(pages.not_found) || '404.html'
+    if (appType === 'mda') {
+      const source = configString(configuration?.config.source) || '.'
+      return `Не удалось собрать Markdown-сайт. Проверьте Markdown-файлы в «${source}»: у каждой страницы должен быть корректный уникальный slug; также проверьте шаблон templates/page.html. Если это настроено, проверьте доступ jasta admin к каталогу релизов и SQLite.`
+    }
+    return `Не удалось собрать релиз. Проверьте, что в каталоге «${root}» архива находятся ${index} и ${notFound}, а домены совпадают с конфигурацией сайта. Если всё верно, проверьте доступ jasta admin к каталогу релизов и SQLite.`
+  }
+  return labels[code || ''] || `Задание завершилось с ошибкой${code ? ` (${code})` : ''}.`
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, appType?: ApplicationType, configuration?: SiteConfiguration | null): string {
   if (error instanceof AdminApiError && error.code === -32004) return 'Выбранный сайт или релиз не найден.'
   if (error instanceof AdminApiError && error.code === -32001) return 'Сессия завершена. Войдите снова.'
-  if (error instanceof AdminApiError && error.message === 'archive deployment failed') return 'Не удалось собрать архив. Состояние задания показано выше.'
+  if (error instanceof AdminApiError && error.jobErrorCode) return jobErrorMessage(error.jobErrorCode, appType, configuration)
+  if (error instanceof AdminApiError && error.message === 'archive deployment failed') return 'Архив не опубликован. Подробности см. в задании ниже.'
   if (error instanceof AdminApiError) return error.message
   return 'Не удалось выполнить операцию. Попробуйте ещё раз.'
+}
+
+function configObject(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function configString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
 }
 
 export default DeploymentsSection

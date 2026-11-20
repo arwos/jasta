@@ -109,6 +109,7 @@ export class AdminApiError extends Error {
     message: string,
     readonly code?: number,
     readonly jobID?: string,
+    readonly jobErrorCode?: string,
   ) {
     super(message)
     this.name = 'AdminApiError'
@@ -265,6 +266,7 @@ class AdminApi {
         typeof details.error === 'string' ? details.error : 'Не удалось загрузить архив.',
         undefined,
         typeof details.job_id === 'string' ? details.job_id : undefined,
+        typeof details.error_code === 'string' ? details.error_code : undefined,
       )
     }
     const value = objectValue(body)
