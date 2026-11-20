@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AdminApiError, adminApi } from './api'
+import Dashboard from './Dashboard'
 
 function App() {
   const [authenticated, setAuthenticated] = useState(false)
@@ -166,28 +167,7 @@ function LoginForm({ onAuthenticated, sessionExpired }: { onAuthenticated: () =>
 }
 
 function Welcome({ onLogout }: { onLogout: () => void }) {
-  return (
-    <main className="min-h-screen bg-[#f4f6f8] px-5 py-8 text-slate-900 sm:px-8 lg:px-12 lg:py-12">
-      <div className="mx-auto max-w-5xl">
-        <header className="flex items-center justify-between border-b border-slate-200 pb-6">
-          <a className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700" href="#main" aria-label="Jasta, на главную">
-            <span className="grid size-10 place-items-center rounded-xl bg-blue-700 text-lg font-bold text-white">J</span>
-            <span className="text-base font-semibold tracking-tight">jasta</span>
-          </a>
-          <button className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" onClick={onLogout} type="button">
-            Выйти
-          </button>
-        </header>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10" id="main">
-          <p className="text-sm font-semibold text-blue-700">Сессия владельца активна</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Вход выполнен</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            Авторизация подтверждена. Разделы сайтов, публикаций и сертификатов появятся здесь.
-          </p>
-        </section>
-      </div>
-    </main>
-  )
+  return <Dashboard onLogout={onLogout} />
 }
 
 function loginErrorMessage(error: unknown): string {

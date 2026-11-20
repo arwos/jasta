@@ -45,10 +45,12 @@ Admin принимает JSON-RPC POST на `/jsonrpc` своего Goppy server
 | `auth.refresh` | публичный | `{refresh_token}` | новая пара `Tokens`; старый refresh и его access session отзываются |
 | `auth.logout` | owner bearer | `{refresh_token}` | `{ok:true}`; отзывает указанную сессию и её descendants |
 | `auth.me` | owner bearer | `{}` | `{subject:"owner"}` |
+| `sites.create` | owner bearer | `{name, app_type, config}` | `SiteSummary`; создаёт сайт с первичным черновым снимком и уникальными доменами |
 | `sites.list` | owner bearer | `{}` | массив `SiteSummary`: id, name, app_type, domains, timestamps, active_release_id |
 | `sites.get` | owner bearer | `{site_id}` | один `SiteSummary` |
-| `sites.config.get` | owner bearer | `{site_id}` | `{site_id, app_type, revision, config}` для последнего снимка |
+| `sites.config.get` | owner bearer | `{site_id}` | `{site_id, app_type, revision, config}` для последнего снимка; runtime root переводится в путь относительно release content, локальные абсолютные пути не возвращаются |
 | `sites.config.validate` | owner bearer | `{app_type, config}` | `{valid:true}` либо ошибка `-32602` |
+| `sites.config.update` | owner bearer | `{site_id, config}` | `{site_id, revision, domains, status:"draft"}`; создаёт новый снимок без изменения активного release/config pair; домены проверяются на коллизии |
 | `sources.list` | owner bearer | `{}` | id, name, auth_type, updated_at; URL и секреты не возвращаются |
 | `sources.create` | owner bearer | `{name, url, auth_type, username?, password?, bearer_token?}` | `{id, name, auth_type}` |
 | `sources.update` | owner bearer | те же поля и обязательный `id` | `{id, name, auth_type}` |

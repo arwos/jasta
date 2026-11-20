@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"go.osspkg.com/encrypt/aesgcm"
 	"go.osspkg.com/goppy/v3/plugins/orm"
 	"go.osspkg.com/goppy/v3/plugins/web"
@@ -22,6 +24,7 @@ import (
 	"go.arwos.org/jasta/internal/deployment/release"
 	"go.arwos.org/jasta/internal/jobs"
 	"go.arwos.org/jasta/internal/pkg/config"
+	"go.arwos.org/jasta/internal/pkg/host"
 	"go.arwos.org/jasta/internal/pkg/nginx"
 	"go.arwos.org/jasta/internal/snapshot"
 )
@@ -39,6 +42,11 @@ type Api struct {
 	certificateMu sync.Mutex
 	nginxConfigMu sync.Mutex
 }
+
+var (
+	errSiteNameTaken  = errors.New("site name is already in use")
+	errSiteDomainUsed = errors.New("site domain is already assigned")
+)
 
 func (a *Api) Up() error {
 	key, err := readOwnerEncryptionKey(a.conf.MasterKeyPath)
@@ -97,10 +105,12 @@ func (a *Api) JSONRPCApiHandlers() map[string]jsonrpc.THandleFunc {
 		"auth.refresh":                   a.refresh,
 		"auth.logout":                    a.logout,
 		"auth.me":                        a.protect(a.me),
+		"sites.create":                   a.protect(a.createSite),
 		"sites.list":                     a.protect(a.listSites),
 		"sites.get":                      a.protect(a.getSite),
 		"sites.config.get":               a.protect(a.getSiteConfig),
 		"sites.config.validate":          a.protect(a.validateSiteConfig),
+		"sites.config.update":            a.protect(a.updateSiteConfig),
 		"sources.list":                   a.protect(a.listSources),
 		"sources.create":                 a.protect(a.createSource),
 		"sources.update":                 a.protect(a.updateSource),
@@ -274,6 +284,88 @@ type siteIDParams struct {
 	SiteID string `json:"site_id"`
 }
 
+type createSiteParams struct {
+	Name    string                 `json:"name"`
+	AppType config.ApplicationType `json:"app_type"`
+	Config  json.RawMessage        `json:"config"`
+}
+
+func (a *Api) createSite(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {
+	var params createSiteParams
+	if decodeParams(raw, &params) != nil {
+		return nil, invalidParams()
+	}
+	params.Name = strings.TrimSpace(params.Name)
+	if params.Name == "" || len(params.Name) > 128 || strings.ContainsAny(params.Name, "\x00\r\n") || len(params.Config) == 0 {
+		return nil, &rpcError{code: -32602, message: "site name and configuration are required"}
+	}
+	app, err := decodeSiteConfig(params.AppType, params.Config)
+	if err != nil {
+		return nil, &rpcError{code: -32602, message: err.Error()}
+	}
+	if markdown, ok := app.(*config.MarkdownApplication); ok {
+		markdown.Source = ""
+	}
+	domains, err := normalizedConfigDomains(app)
+	if err != nil {
+		return nil, &rpcError{code: -32602, message: err.Error()}
+	}
+	configJSON, err := json.Marshal(app)
+	if err != nil {
+		return nil, internalError()
+	}
+	siteID := uuid.NewString()
+	snapshotID := uuid.NewString()
+	now := time.Now().UTC()
+	err = a.database.Tag("master").CallContext(ctx, "create site config draft", func(ctx context.Context, db orm.DB) error {
+		beginner, ok := db.(sqlBeginner)
+		if !ok {
+			return errors.New("database connection does not support transactions")
+		}
+		tx, err := beginner.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback() }()
+		var exists int
+		err = tx.QueryRowContext(ctx, "SELECT 1 FROM sites WHERE name = ?", params.Name).Scan(&exists)
+		if err == nil {
+			return errSiteNameTaken
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		for _, domain := range domains {
+			err = tx.QueryRowContext(ctx, "SELECT 1 FROM site_domains WHERE domain = ?", domain).Scan(&exists)
+			if err == nil {
+				return fmt.Errorf("%w: %q", errSiteDomainUsed, domain)
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+		}
+		if _, err = tx.ExecContext(ctx, "INSERT INTO sites (id, name, app_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", siteID, params.Name, params.AppType, now.Unix(), now.Unix()); err != nil {
+			return err
+		}
+		for _, domain := range domains {
+			if _, err = tx.ExecContext(ctx, "INSERT INTO site_domains (domain, site_id, created_at) VALUES (?, ?, ?)", domain, siteID, now.Unix()); err != nil {
+				return err
+			}
+		}
+		if _, err = tx.ExecContext(ctx, "INSERT INTO site_config_snapshots (id, site_id, revision, config_json, created_at) VALUES (?, ?, 1, ?, ?)", snapshotID, siteID, string(configJSON), now.Unix()); err != nil {
+			return err
+		}
+		return tx.Commit()
+	})
+	if err != nil {
+		if errors.Is(err, errSiteNameTaken) || errors.Is(err, errSiteDomainUsed) {
+			return nil, &rpcError{code: -32602, message: err.Error()}
+		}
+		return nil, internalError()
+	}
+	return siteSummary{ID: siteID, Name: params.Name, AppType: string(params.AppType), Domains: domains, CreatedAt: now, UpdatedAt: now}, nil
+}
+
 func (a *Api) getSite(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {
 	var params siteIDParams
 	if decodeParams(raw, &params) != nil || params.SiteID == "" {
@@ -296,8 +388,9 @@ func (a *Api) getSiteConfig(ctx context.Context, _ web.Ctx, raw json.RawMessage)
 	if decodeParams(raw, &params) != nil || params.SiteID == "" {
 		return nil, invalidParams()
 	}
-	var appType, rawConfig string
+	var appType, snapshotID, rawConfig string
 	var revision int64
+	var contentRoot sql.NullString
 	err := a.database.Tag("master").CallContext(ctx, "read site config for admin API", func(ctx context.Context, db orm.DB) error {
 		queryer, ok := db.(interface {
 			QueryRowContext(context.Context, string, ...any) *sql.Row
@@ -305,9 +398,11 @@ func (a *Api) getSiteConfig(ctx context.Context, _ web.Ctx, raw json.RawMessage)
 		if !ok {
 			return errors.New("database connection does not support row queries")
 		}
-		return queryer.QueryRowContext(ctx, `SELECT s.app_type, c.revision, c.config_json FROM sites s
-			JOIN site_config_snapshots c ON c.site_id = s.id WHERE s.id = ? ORDER BY c.revision DESC LIMIT 1`, params.SiteID).
-			Scan(&appType, &revision, &rawConfig)
+		return queryer.QueryRowContext(ctx, `SELECT s.app_type, c.id, c.revision, c.config_json, r.content_path FROM sites s
+			JOIN site_config_snapshots c ON c.site_id = s.id
+			LEFT JOIN releases r ON r.config_snapshot_id = c.id
+			WHERE s.id = ? ORDER BY c.revision DESC LIMIT 1`, params.SiteID).
+			Scan(&appType, &snapshotID, &revision, &rawConfig, &contentRoot)
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &rpcError{code: -32004, message: "site config not found"}
@@ -315,7 +410,30 @@ func (a *Api) getSiteConfig(ctx context.Context, _ web.Ctx, raw json.RawMessage)
 	if err != nil {
 		return nil, internalError()
 	}
-	return map[string]any{"site_id": params.SiteID, "app_type": appType, "revision": revision, "config": json.RawMessage(rawConfig)}, nil
+	app, err := config.GetApplicationConfigByType(config.ApplicationType(appType))
+	if err != nil || json.Unmarshal([]byte(rawConfig), app) != nil {
+		return nil, internalError()
+	}
+	if rooter, ok := app.(config.Rooter); ok {
+		root := rooter.GetRoot()
+		if filepath.IsAbs(root) {
+			editableRoot := "."
+			if contentRoot.Valid {
+				if relative, relErr := filepath.Rel(contentRoot.String, root); relErr == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) && !filepath.IsAbs(relative) {
+					editableRoot = relative
+				}
+			}
+			rooter.SetRoot(editableRoot)
+		}
+	}
+	if markdown, ok := app.(*config.MarkdownApplication); ok {
+		markdown.Source = ""
+	}
+	editableConfig, err := json.Marshal(app)
+	if err != nil {
+		return nil, internalError()
+	}
+	return map[string]any{"site_id": params.SiteID, "app_type": appType, "revision": revision, "config": json.RawMessage(editableConfig)}, nil
 }
 
 type validateConfigParams struct {
@@ -328,18 +446,215 @@ func (a *Api) validateSiteConfig(_ context.Context, _ web.Ctx, raw json.RawMessa
 	if decodeParams(raw, &params) != nil || params.AppType == "" || len(params.Config) == 0 {
 		return nil, invalidParams()
 	}
-	value, err := config.GetApplicationConfigByType(params.AppType)
-	if err != nil || json.Unmarshal(params.Config, value) != nil {
-		return nil, invalidParams()
+	value, err := decodeSiteConfig(params.AppType, params.Config)
+	if err == nil {
+		_, err = normalizedConfigDomains(value)
 	}
-	validator, ok := value.(interface{ Validate() error })
-	if !ok {
-		return nil, internalError()
-	}
-	if err = validator.Validate(); err != nil {
-		return nil, invalidParams()
+	if err != nil {
+		return nil, &rpcError{code: -32602, message: err.Error()}
 	}
 	return map[string]any{"valid": true}, nil
+}
+
+type updateSiteConfigParams struct {
+	SiteID string          `json:"site_id"`
+	Config json.RawMessage `json:"config"`
+}
+
+type sqlBeginner interface {
+	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+}
+
+func (a *Api) updateSiteConfig(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {
+	var params updateSiteConfigParams
+	if decodeParams(raw, &params) != nil || params.SiteID == "" || len(params.Config) == 0 {
+		return nil, invalidParams()
+	}
+
+	var appType config.ApplicationType
+	if err := a.database.Tag("master").CallContext(ctx, "load site type for config update", func(ctx context.Context, db orm.DB) error {
+		queryer, ok := db.(interface {
+			QueryRowContext(context.Context, string, ...any) *sql.Row
+		})
+		if !ok {
+			return errors.New("database connection does not support row queries")
+		}
+		return queryer.QueryRowContext(ctx, "SELECT app_type FROM sites WHERE id = ?", params.SiteID).Scan(&appType)
+	}); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &rpcError{code: -32004, message: "site not found"}
+		}
+		return nil, internalError()
+	}
+
+	app, err := decodeSiteConfig(appType, params.Config)
+	if err != nil {
+		return nil, &rpcError{code: -32602, message: err.Error()}
+	}
+	if markdown, ok := app.(*config.MarkdownApplication); ok {
+		markdown.Source = ""
+	}
+	domains, err := normalizedConfigDomains(app)
+	if err != nil {
+		return nil, &rpcError{code: -32602, message: err.Error()}
+	}
+	configJSON, err := json.Marshal(app)
+	if err != nil {
+		return nil, internalError()
+	}
+
+	type result struct {
+		SiteID   string   `json:"site_id"`
+		Revision int64    `json:"revision"`
+		Domains  []string `json:"domains"`
+		Status   string   `json:"status"`
+	}
+	var saved result
+	err = a.database.Tag("master").CallContext(ctx, "save site config draft", func(ctx context.Context, db orm.DB) error {
+		beginner, ok := db.(sqlBeginner)
+		if !ok {
+			return errors.New("database connection does not support transactions")
+		}
+		tx, err := beginner.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var storedType string
+		if err = tx.QueryRowContext(ctx, "SELECT app_type FROM sites WHERE id = ?", params.SiteID).Scan(&storedType); err != nil {
+			return err
+		}
+		if storedType != string(appType) {
+			return errors.New("site type changed during config update")
+		}
+		for _, domain := range domains {
+			var owner string
+			err = tx.QueryRowContext(ctx, "SELECT site_id FROM site_domains WHERE domain = ?", domain).Scan(&owner)
+			if err == nil && owner != params.SiteID {
+				return fmt.Errorf("%w: %q", errSiteDomainUsed, domain)
+			}
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+		}
+
+		if _, err = tx.ExecContext(ctx, "DELETE FROM site_domains WHERE site_id = ?", params.SiteID); err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		for _, domain := range domains {
+			if _, err = tx.ExecContext(ctx, "INSERT INTO site_domains (domain, site_id, created_at) VALUES (?, ?, ?)", domain, params.SiteID, now.Unix()); err != nil {
+				return err
+			}
+		}
+		if err = tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(revision), 0) + 1 FROM site_config_snapshots WHERE site_id = ?", params.SiteID).Scan(&saved.Revision); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, "INSERT INTO site_config_snapshots (id, site_id, revision, config_json, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), params.SiteID, saved.Revision, string(configJSON), now.Unix()); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, "UPDATE sites SET updated_at = ? WHERE id = ?", now.Unix(), params.SiteID); err != nil {
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+		saved.SiteID = params.SiteID
+		saved.Domains = domains
+		saved.Status = "draft"
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, errSiteDomainUsed) {
+			return nil, &rpcError{code: -32602, message: err.Error()}
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &rpcError{code: -32004, message: "site not found"}
+		}
+		return nil, internalError()
+	}
+	return saved, nil
+}
+
+func decodeSiteConfig(appType config.ApplicationType, raw json.RawMessage) (any, error) {
+	app, err := config.GetApplicationConfigByType(appType)
+	if err != nil {
+		return nil, errors.New("unsupported application type")
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(app); err != nil {
+		return nil, errors.New("configuration JSON is invalid")
+	}
+	if err = decoder.Decode(new(any)); err == nil {
+		return nil, errors.New("configuration must contain one JSON value")
+	} else if !errors.Is(err, io.EOF) {
+		return nil, errors.New("configuration JSON is invalid")
+	}
+	validator, ok := app.(interface{ Validate() error })
+	if !ok {
+		return nil, errors.New("application type cannot be validated")
+	}
+	if err = validator.Validate(); err != nil {
+		return nil, err
+	}
+	if rooter, ok := app.(config.Rooter); ok {
+		root := filepath.Clean(rooter.GetRoot())
+		if filepath.IsAbs(root) || root == ".." || strings.HasPrefix(root, ".."+string(filepath.Separator)) {
+			return nil, errors.New("root must stay inside the published archive")
+		}
+	}
+	return app, nil
+}
+
+func normalizedConfigDomains(app any) ([]string, error) {
+	var domains []string
+	allowRepeated := false
+	switch value := app.(type) {
+	case *config.SinglePageApplication:
+		domains = value.Domains
+	case *config.MultiPageApplication:
+		domains = value.Domains
+	case *config.MarkdownApplication:
+		domains = value.Domains
+	case *config.RedirectPageApplication:
+		allowRepeated = true
+		for _, redirect := range value.Redirects {
+			domains = append(domains, redirect.Domain)
+		}
+	}
+	result := make([]string, 0, len(domains))
+	seen := make(map[string]struct{}, len(domains))
+	for index, domain := range domains {
+		normalized, err := host.Normalize(domain)
+		if err != nil {
+			return nil, fmt.Errorf("invalid domain %q: %w", domain, err)
+		}
+		if _, exists := seen[normalized]; exists && !allowRepeated {
+			return nil, fmt.Errorf("duplicate domain %q", normalized)
+		}
+		if _, exists := seen[normalized]; exists {
+			switch value := app.(type) {
+			case *config.RedirectPageApplication:
+				value.Redirects[index].Domain = normalized
+			}
+			continue
+		}
+		seen[normalized] = struct{}{}
+		result = append(result, normalized)
+		switch value := app.(type) {
+		case *config.SinglePageApplication:
+			value.Domains[index] = normalized
+		case *config.MultiPageApplication:
+			value.Domains[index] = normalized
+		case *config.MarkdownApplication:
+			value.Domains[index] = normalized
+		case *config.RedirectPageApplication:
+			value.Redirects[index].Domain = normalized
+		}
+	}
+	return result, nil
 }
 
 func (a *Api) listSources(ctx context.Context, _ web.Ctx, raw json.RawMessage) (any, error) {

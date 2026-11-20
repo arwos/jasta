@@ -16,6 +16,34 @@ type RpcReply<T> = {
   error?: RpcErrorShape
 }
 
+export type SiteSummary = {
+  id: string
+  name: string
+  app_type: ApplicationType
+  domains: string[]
+  created_at: string
+  updated_at: string
+  active_release_id?: string
+}
+
+export type ApplicationType = 'spa' | 'mpa' | 'mda' | 'rpa'
+
+export type SiteConfiguration = {
+  site_id: string
+  app_type: ApplicationType
+  revision: number
+  config: Record<string, unknown>
+}
+
+export type CertificateSummary = {
+  id: string
+  domain: string
+  issuer: string
+  status: string
+  not_before?: string
+  not_after?: string
+}
+
 export class AdminApiError extends Error {
   constructor(
     message: string,
@@ -105,6 +133,35 @@ class AdminApi {
       }
       return this.request<T>(method, params, refreshed.access_token)
     }
+  }
+
+  listSites(): Promise<SiteSummary[]> {
+    return this.call('sites.list', {})
+  }
+
+  createSite(name: string, appType: ApplicationType, config: Record<string, unknown>): Promise<SiteSummary> {
+    return this.call('sites.create', { name, app_type: appType, config })
+  }
+
+  getSiteConfiguration(siteID: string): Promise<SiteConfiguration> {
+    return this.call('sites.config.get', { site_id: siteID })
+  }
+
+  listCertificates(): Promise<CertificateSummary[]> {
+    return this.call('certificates.list', {})
+  }
+
+  validateSiteConfiguration(appType: ApplicationType, config: Record<string, unknown>): Promise<{ valid: boolean }> {
+    return this.call('sites.config.validate', { app_type: appType, config })
+  }
+
+  updateSiteConfiguration(siteID: string, config: Record<string, unknown>): Promise<{
+    site_id: string
+    revision: number
+    domains: string[]
+    status: 'draft'
+  }> {
+    return this.call('sites.config.update', { site_id: siteID, config })
   }
 
   private async refreshAccessToken(): Promise<void> {
