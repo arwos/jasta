@@ -1,20 +1,21 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strconv"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"go.osspkg.com/goppy/v3/pkg/mime"
 	"go.osspkg.com/goppy/v3/plugins/web"
 	"go.osspkg.com/logx"
 
-	"go.arwos.org/jasta/internal/pkg/urlclean"
-
 	"go.arwos.org/jasta/internal/pkg/config"
+	"go.arwos.org/jasta/internal/pkg/urlclean"
 )
 
 const (
@@ -38,69 +39,88 @@ func Initialize(c any) (s Service, _ error) {
 	return s, s.setup()
 }
 
-func assetResponse(ctx web.Ctx, fs *os.Root, page string, c config.Assets) {
-	page = urlclean.Clean(page)
-	fi, err := fs.Open(page)
+func cleanRequestPath(value string) (string, error) {
+	if strings.ContainsRune(value, '\\') {
+		return "", fmt.Errorf("backslash is not allowed in URL path")
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("path traversal is not allowed")
+		}
+	}
+	return urlclean.Clean(value), nil
+}
+
+func cleanContentPath(value string) (string, error) {
+	value = strings.TrimPrefix(value, "/")
+	return cleanRequestPath(value)
+}
+
+func serveFile(ctx web.Ctx, root *os.Root, name string, status int, cache *config.Assets) (bool, error) {
+	name, err := cleanContentPath(name)
 	if err != nil {
-		logx.Warn("failed to read asset content", "host", ctx.URL().Host, "file", page, "err", err)
-		ctx.Response().WriteHeader(http.StatusNotFound)
-		return
+		return false, err
+	}
+	if name == "" {
+		return false, nil
+	}
+	file, err := root.Open(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("open content file %q: %w", name, err)
 	}
 	defer func() {
-		if err = fi.Close(); err != nil {
-			logx.Error("failed to close asset file", "host", ctx.URL().Host, "file", page, "err", err)
+		if closeErr := file.Close(); closeErr != nil {
+			logx.Error("failed to close content file", "file", name, "err", closeErr)
 		}
 	}()
 
-	ctx.Header().Set("Content-Type", mime.DetectByFilename(page))
-	ctx.Header().Set("Cache-Control", "max-age="+strconv.FormatInt(int64(c.CacheTTL.Seconds()), 10))
-	ctx.Response().WriteHeader(http.StatusOK)
-	if _, err := io.Copy(ctx.Response(), fi); err != nil {
-		logx.Error("failed to stream asset content", "host", ctx.URL().Host, "file", page, "err", err)
+	info, err := file.Stat()
+	if err != nil {
+		return false, fmt.Errorf("stat content file %q: %w", name, err)
 	}
+	if !info.Mode().IsRegular() {
+		return false, nil
+	}
+
+	ctx.Header().Set("Content-Type", mime.DetectByFilename(name))
+	if cache != nil {
+		ctx.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", int64(cache.CacheTTL.Seconds())))
+	}
+	ctx.Response().WriteHeader(status)
+	if _, err = io.Copy(ctx.Response(), file); err != nil {
+		logx.Error("failed to stream content file", "host", ctx.URL().Host, "file", name, "err", err)
+	}
+	return true, nil
 }
 
-func htmlResponse(ctx web.Ctx, fs *os.Root, code int, pages ...string) bool {
-	var (
-		fi   *os.File
-		err  error
-		page string
-	)
-
-	for i := 0; i < len(pages); i++ {
-		page = urlclean.Clean(pages[i])
-		if fi, err = fs.Open(page); err != nil {
-			logx.Warn("failed to read page content", "host", ctx.URL().Host, "file", page, "err", err)
-			continue
+func respondNotFound(ctx web.Ctx, root *os.Root, page string) {
+	if page != "" {
+		found, err := serveFile(ctx, root, page, http.StatusNotFound, nil)
+		if err != nil {
+			logx.Error("failed to read not-found page", "file", page, "err", err)
 		}
-		break
+		if found {
+			return
+		}
 	}
+	ctx.Response().WriteHeader(http.StatusNotFound)
+}
 
-	if fi == nil {
+func isAssetPath(requestPath, assetPath string) bool {
+	assetPath = strings.Trim(strings.ReplaceAll(assetPath, "\\", "/"), "/")
+	if assetPath == "" {
 		return false
 	}
-
-	defer func() {
-		if err = fi.Close(); err != nil {
-			logx.Error("failed to close page file", "host", ctx.URL().Host, "file", page, "err", err)
-		}
-	}()
-
-	ctx.Header().Set("Content-Type", mime.DetectByFilename(page))
-	ctx.Response().WriteHeader(code)
-
-	if _, err = io.Copy(ctx.Response(), fi); err != nil {
-		logx.Error("failed to stream page content", "host", ctx.URL().Host, "file", page, "err", err)
-	}
-
-	return true
+	return requestPath == assetPath || strings.HasPrefix(requestPath, assetPath+"/")
 }
 
-func join(prefix, postfix string) string {
-	if strings.HasSuffix(prefix, postfix) {
-		return prefix
-	}
-	return prefix + "/" + postfix
+func isWellKnown(requestPath string) bool {
+	requestPath = strings.TrimPrefix(requestPath, "/")
+	wellKnownPath := strings.TrimPrefix(wellKnown, "/")
+	return requestPath == wellKnownPath || strings.HasPrefix(requestPath, wellKnownPath+"/")
 }
 
 func isSysFile(page string) bool {
@@ -116,4 +136,15 @@ func isSysFile(page string) bool {
 	default:
 		return false
 	}
+}
+
+func hasFileExtension(pathValue string) bool {
+	return filepath.Ext(pathValue) != ""
+}
+
+func directoryIndex(requestPath, indexName string) string {
+	if requestPath == "" {
+		return indexName
+	}
+	return path.Join(requestPath, indexName)
 }

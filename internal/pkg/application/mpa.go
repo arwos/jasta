@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"go.osspkg.com/goppy/v3/plugins/web"
 	"go.osspkg.com/logx"
@@ -38,19 +36,42 @@ func (a *mpa) Domains() []string {
 }
 
 func (a *mpa) Handler(ctx web.Ctx) {
-	path := ctx.URL().Path
-	ext := filepath.Ext(path)
+	requestPath, err := cleanRequestPath(ctx.URL().Path)
+	if err != nil {
+		ctx.Response().WriteHeader(http.StatusNotFound)
+		return
+	}
 
-	switch {
-	case strings.HasPrefix(path, a.conf.Assets.Path) && len(ext) > 0:
-		assetResponse(ctx, a.fs, path, a.conf.Assets)
-
-	case strings.HasPrefix(path, wellKnown) || isSysFile(path):
-		assetResponse(ctx, a.fs, path, config.Assets{})
-
-	case htmlResponse(ctx, a.fs, http.StatusOK, join(path, a.conf.Pages.Index)):
-	case htmlResponse(ctx, a.fs, http.StatusNotFound, a.conf.Pages.NotFound):
-	default:
+	var cache *config.Assets
+	if isAssetPath(requestPath, a.conf.Assets.Path) || isWellKnown(requestPath) || isSysFile(ctx.URL().Path) {
+		cache = &config.Assets{}
+		if isAssetPath(requestPath, a.conf.Assets.Path) {
+			cache = &a.conf.Assets
+		}
+	}
+	found, err := serveFile(ctx, a.fs, requestPath, http.StatusOK, cache)
+	if err != nil {
+		logx.Error("failed to serve MPA file", "path", requestPath, "err", err)
 		ctx.Response().WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if found {
+		return
+	}
+
+	if cache != nil || hasFileExtension(requestPath) {
+		respondNotFound(ctx, a.fs, a.conf.Pages.NotFound)
+		return
+	}
+
+	indexPath := directoryIndex(requestPath, a.conf.Pages.Index)
+	found, err = serveFile(ctx, a.fs, indexPath, http.StatusOK, nil)
+	if err != nil {
+		logx.Error("failed to serve MPA directory index", "file", indexPath, "err", err)
+		ctx.Response().WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		respondNotFound(ctx, a.fs, a.conf.Pages.NotFound)
 	}
 }
