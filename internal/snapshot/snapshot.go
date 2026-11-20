@@ -27,6 +27,37 @@ type Runtime struct {
 	Handlers map[string]application.Service
 }
 
+func (r *Runtime) AddService(service application.Service) error {
+	domains := service.Domains()
+	if len(domains) == 0 {
+		return fmt.Errorf("site must declare at least one domain")
+	}
+	normalized := make([]string, 0, len(domains))
+	seen := make(map[string]struct{}, len(domains))
+	for _, domain := range domains {
+		host, err := NormalizeHost(domain)
+		if err != nil {
+			return fmt.Errorf("invalid site domain %q: %w", domain, err)
+		}
+		if _, exists := seen[host]; exists {
+			return fmt.Errorf("duplicate domain %q in site", host)
+		}
+		if _, exists := r.Handlers[host]; exists {
+			return fmt.Errorf("domain %q is already assigned to another site", host)
+		}
+		seen[host] = struct{}{}
+		normalized = append(normalized, host)
+	}
+	if r.Handlers == nil {
+		r.Handlers = make(map[string]application.Service)
+	}
+	for _, host := range normalized {
+		r.Handlers[host] = service
+	}
+	r.Apps = append(r.Apps, service)
+	return nil
+}
+
 func Prepare(s Snapshot) (runtime *Runtime, err error) {
 	if s.Version != ProtocolVersion {
 		return nil, fmt.Errorf("unsupported snapshot version %d", s.Version)
@@ -70,15 +101,11 @@ func Prepare(s Snapshot) (runtime *Runtime, err error) {
 			runtime.Close()
 			return nil, fmt.Errorf("initialize site %d: %w", i, err)
 		}
-		for _, domain := range service.Domains() {
-			if _, exists := runtime.Handlers[domain]; exists {
-				service.Close()
-				runtime.Close()
-				return nil, fmt.Errorf("duplicate domain %q in snapshot", domain)
-			}
-			runtime.Handlers[domain] = service
+		if err = runtime.AddService(service); err != nil {
+			service.Close()
+			runtime.Close()
+			return nil, fmt.Errorf("site %d: %w", i, err)
 		}
-		runtime.Apps = append(runtime.Apps, service)
 	}
 
 	return runtime, nil

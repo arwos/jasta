@@ -2,7 +2,6 @@ package public
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"go.osspkg.com/goppy/v3/plugins/web"
@@ -48,26 +47,10 @@ func (a *Api) Up() error {
 			continue
 		}
 
-		duplicate := false
-		for _, domain := range s.Domains() {
-			if _, exists := state.Handlers[domain]; exists {
-				logx.Error("duplicate site domain", "domain", domain)
-				duplicate = true
-				break
-			}
-			state.Handlers[domain] = s
-		}
-		if duplicate {
+		if err = state.AddService(s); err != nil {
+			logx.Error("register site domains", "err", err)
 			s.Close()
-			for _, domain := range s.Domains() {
-				if state.Handlers[domain] == s {
-					delete(state.Handlers, domain)
-				}
-			}
-			continue
 		}
-
-		state.Apps = append(state.Apps, s)
 	}
 	a.state = state
 
@@ -131,9 +114,11 @@ func (a *Api) applySnapshot(next snapshot.Snapshot) error {
 func (a *Api) handler(ctx web.Ctx) {
 	ctx.Response().Header().Set("X-Service-Name", "org.arwos.jasta")
 
-	host, _, err := net.SplitHostPort(ctx.URL().Host)
+	host, err := snapshot.NormalizeHost(ctx.URL().Host)
 	if err != nil {
-		host = ctx.URL().Host
+		ctx.Response().WriteHeader(400)
+		logx.Warn("Invalid request host", "host", ctx.URL().Host, "err", err)
+		return
 	}
 
 	a.mu.RLock()
