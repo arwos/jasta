@@ -3,7 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
 	"time"
+
+	"go.arwos.org/jasta/internal/pkg/host"
 )
 
 type ApplicationType string
@@ -138,14 +143,101 @@ type RedirectPageApplication struct {
 }
 
 func (a RedirectPageApplication) Validate() error {
+	if len(a.Redirects) == 0 {
+		return errors.New("redirects is required")
+	}
+	graph := make(map[string][]string)
+	seen := make(map[string]struct{}, len(a.Redirects))
 	for i, redirect := range a.Redirects {
-		switch {
-		case len(redirect.Domain) == 0:
-			return fmt.Errorf("domain is required for %d", i)
-		case len(redirect.UrlFrom) == 0:
-			return fmt.Errorf("urlFrom is required for %d", i)
-		case len(redirect.UrlTo) == 0:
-			return fmt.Errorf("urlTo is required for %d", i)
+		source, err := host.Normalize(redirect.Domain)
+		if err != nil {
+			return fmt.Errorf("invalid source domain for redirect %d: %w", i, err)
+		}
+		from, err := NormalizeRedirectPath(redirect.UrlFrom)
+		if err != nil {
+			return fmt.Errorf("invalid url_from for redirect %d: %w", i, err)
+		}
+		key := source + "\x00" + from
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("duplicate redirect rule for domain %q and path %q", source, from)
+		}
+		seen[key] = struct{}{}
+
+		target, err := url.Parse(redirect.UrlTo)
+		if err != nil {
+			return fmt.Errorf("invalid url_to for redirect %d: %w", i, err)
+		}
+		scheme := strings.ToLower(target.Scheme)
+		if !target.IsAbs() || (scheme != "http" && scheme != "https") || target.Host == "" || target.User != nil || target.RawQuery != "" || target.ForceQuery || target.Fragment != "" {
+			return fmt.Errorf("url_to for redirect %d must be an absolute HTTP or HTTPS URL without credentials, query, or fragment", i)
+		}
+		destination, err := host.Normalize(target.Host)
+		if err != nil {
+			return fmt.Errorf("invalid target domain for redirect %d: %w", i, err)
+		}
+		for _, segment := range strings.Split(target.Path, "/") {
+			if segment == ".." {
+				return fmt.Errorf("url_to path traversal is not allowed for redirect %d", i)
+			}
+		}
+		if redirect.StatusCode != 301 && redirect.StatusCode != 308 {
+			return fmt.Errorf("status_code for redirect %d must be 301 or 308", i)
+		}
+		graph[source] = append(graph[source], destination)
+	}
+	if err := validateRedirectGraph(graph); err != nil {
+		return err
+	}
+	return nil
+}
+
+func NormalizeRedirectPath(value string) (string, error) {
+	if value == "" || !strings.HasPrefix(value, "/") || strings.ContainsRune(value, '\\') {
+		return "", fmt.Errorf("must be an absolute URL path")
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", err
+	}
+	if parsed.IsAbs() || parsed.Host != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
+		return "", fmt.Errorf("must contain only a URL path")
+	}
+	for _, segment := range strings.Split(parsed.Path, "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("path traversal is not allowed")
+		}
+	}
+	return path.Clean(parsed.Path), nil
+}
+
+func validateRedirectGraph(graph map[string][]string) error {
+	const (
+		visiting = 1
+		visited  = 2
+	)
+	state := make(map[string]int, len(graph))
+	var visit func(string) error
+	visit = func(domain string) error {
+		if state[domain] == visiting {
+			return fmt.Errorf("redirect cycle includes domain %q", domain)
+		}
+		if state[domain] == visited {
+			return nil
+		}
+		state[domain] = visiting
+		for _, target := range graph[domain] {
+			if _, redirectSource := graph[target]; redirectSource {
+				if err := visit(target); err != nil {
+					return err
+				}
+			}
+		}
+		state[domain] = visited
+		return nil
+	}
+	for domain := range graph {
+		if err := visit(domain); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -162,7 +254,8 @@ type Pages struct {
 }
 
 type Redirect struct {
-	Domain  string `yaml:"domain" json:"domain"`
-	UrlFrom string `yaml:"url_from" json:"url_from"`
-	UrlTo   string `yaml:"url_to" json:"url_to"`
+	Domain     string `yaml:"domain" json:"domain"`
+	UrlFrom    string `yaml:"url_from" json:"url_from"`
+	UrlTo      string `yaml:"url_to" json:"url_to"`
+	StatusCode int    `yaml:"status_code" json:"status_code"`
 }

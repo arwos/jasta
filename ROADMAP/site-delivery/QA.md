@@ -1,13 +1,13 @@
 # QA F02 — Обслуживание типов сайтов
 
-F02-T01 и F02-T02 выполнены. F02-T03–F02-T04 и оставшиеся сценарии запланированы; тестовые наборы не запускались.
+F02-T01–F02-T03 выполнены. F02-T04 и оставшиеся сценарии запланированы.
 
 ## Сценарии
 
 - Два сайта на разных host; host с портом/регистром; домен назначен двум сайтам; неизвестный host.
 - SPA: найденный asset, extensionless route, index, missing asset и path traversal.
 - MPA: корневой и вложенный `index.html`, trailing slash, отсутствующая страница, custom 404 и path traversal.
-- Redirect: 301 и 308, сохранение query и разных path, некорректный target, цикл правил.
+- Redirect: 301 и 308, сохранение path/query, host normalization и path-prefix граница, некорректный target, циклы внутри одной конфигурации и между сайтами.
 - Markdown: валидный slug, главная `/`, повторный и некорректный slug, отсутствующий slug, UTF-8 и специальные HTML-значения в front matter.
 - Markdown renderer: HTML из Markdown остаётся экранированным; input/depth/token limits дают ошибку сборки; сгенерированный HTML и copied assets доступны по ожидаемым URL.
 
@@ -22,4 +22,7 @@ F02-T01 и F02-T02 выполнены. F02-T03–F02-T04 и оставшиеся
 - `go build -o /tmp/jasta-f02-t02 ./cmd/jasta` и `git diff --check` — успешно; Go вывел предупреждение о read-only GVM stat cache.
 - Runtime smoke на временных сайтах в `/tmp/jasta-f02-t02-dt_arwpq`: SPA root, direct file, fallback route и asset вернули 200; missing asset вернул 404 с custom page. MPA root, `/nested`, `/nested/` и nested file вернули 200; missing page и asset вернули 404 с custom page. Asset ответ содержал `Cache-Control: max-age=0`.
 - Encoded traversal `/%2e%2e/%2e%2e/etc/passwd` на обоих типах сайтов вернул пустой HTTP 404. Тестовый web-процесс остановлен; fixtures размещались только в `/tmp`.
+- `gofmt -w internal/pkg/host/normalize.go internal/pkg/application/rpa.go internal/pkg/application/rpa_test.go internal/pkg/config/config.go internal/snapshot/snapshot.go internal/snapshot/redirect_cycle_test.go internal/api/public/api.go` — успешно.
+- `go test ./internal/pkg/application ./internal/snapshot ./internal/pkg/config` — успешно; покрыты 301/308, path/query, нормализация host, prefix boundary, ошибочные redirect rules и межсайтовый цикл.
+- `go build -o /tmp/jasta-f02-t03 ./cmd/jasta` и `git diff --check` — успешно; Go вывел предупреждение о read-only GVM stat cache.
 - Полный тестовый набор и lint не запускались.

@@ -6,6 +6,7 @@ import (
 
 	"go.arwos.org/jasta/internal/pkg/application"
 	"go.arwos.org/jasta/internal/pkg/config"
+	"go.arwos.org/jasta/internal/pkg/host"
 )
 
 const ProtocolVersion = 1
@@ -35,18 +36,18 @@ func (r *Runtime) AddService(service application.Service) error {
 	normalized := make([]string, 0, len(domains))
 	seen := make(map[string]struct{}, len(domains))
 	for _, domain := range domains {
-		host, err := NormalizeHost(domain)
+		hostName, err := host.Normalize(domain)
 		if err != nil {
 			return fmt.Errorf("invalid site domain %q: %w", domain, err)
 		}
-		if _, exists := seen[host]; exists {
-			return fmt.Errorf("duplicate domain %q in site", host)
+		if _, exists := seen[hostName]; exists {
+			return fmt.Errorf("duplicate domain %q in site", hostName)
 		}
-		if _, exists := r.Handlers[host]; exists {
-			return fmt.Errorf("domain %q is already assigned to another site", host)
+		if _, exists := r.Handlers[hostName]; exists {
+			return fmt.Errorf("domain %q is already assigned to another site", hostName)
 		}
-		seen[host] = struct{}{}
-		normalized = append(normalized, host)
+		seen[hostName] = struct{}{}
+		normalized = append(normalized, hostName)
 	}
 	if r.Handlers == nil {
 		r.Handlers = make(map[string]application.Service)
@@ -55,6 +56,53 @@ func (r *Runtime) AddService(service application.Service) error {
 		r.Handlers[host] = service
 	}
 	r.Apps = append(r.Apps, service)
+	return nil
+}
+
+func (r *Runtime) ValidateRedirectCycles() error {
+	graph := make(map[string][]string)
+	for _, app := range r.Apps {
+		redirector, ok := app.(interface {
+			RedirectEdges() []application.RedirectEdge
+		})
+		if !ok {
+			continue
+		}
+		for _, edge := range redirector.RedirectEdges() {
+			graph[edge.SourceDomain] = append(graph[edge.SourceDomain], edge.TargetDomain)
+		}
+	}
+
+	const (
+		unseen = iota
+		visiting
+		visited
+	)
+	state := make(map[string]int, len(graph))
+	var visit func(string) error
+	visit = func(domain string) error {
+		if state[domain] == visiting {
+			return fmt.Errorf("redirect cycle includes domain %q", domain)
+		}
+		if state[domain] == visited {
+			return nil
+		}
+		state[domain] = visiting
+		for _, target := range graph[domain] {
+			if _, isRedirectSource := graph[target]; isRedirectSource {
+				if err := visit(target); err != nil {
+					return err
+				}
+			}
+		}
+		state[domain] = visited
+		return nil
+	}
+	for domain := range graph {
+		if err := visit(domain); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -106,6 +154,10 @@ func Prepare(s Snapshot) (runtime *Runtime, err error) {
 			runtime.Close()
 			return nil, fmt.Errorf("site %d: %w", i, err)
 		}
+	}
+	if err = runtime.ValidateRedirectCycles(); err != nil {
+		runtime.Close()
+		return nil, err
 	}
 
 	return runtime, nil

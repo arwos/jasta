@@ -9,6 +9,7 @@ import (
 
 	"go.arwos.org/jasta/internal/pkg/application"
 	"go.arwos.org/jasta/internal/pkg/config"
+	"go.arwos.org/jasta/internal/pkg/host"
 	"go.arwos.org/jasta/internal/snapshot"
 )
 
@@ -51,6 +52,10 @@ func (a *Api) Up() error {
 			logx.Error("register site domains", "err", err)
 			s.Close()
 		}
+	}
+	if err := state.ValidateRedirectCycles(); err != nil {
+		state.Close()
+		return err
 	}
 	a.state = state
 
@@ -114,7 +119,7 @@ func (a *Api) applySnapshot(next snapshot.Snapshot) error {
 func (a *Api) handler(ctx web.Ctx) {
 	ctx.Response().Header().Set("X-Service-Name", "org.arwos.jasta")
 
-	host, err := snapshot.NormalizeHost(ctx.URL().Host)
+	hostName, err := host.Normalize(ctx.URL().Host)
 	if err != nil {
 		ctx.Response().WriteHeader(400)
 		logx.Warn("Invalid request host", "host", ctx.URL().Host, "err", err)
@@ -127,10 +132,10 @@ func (a *Api) handler(ctx web.Ctx) {
 		ctx.Response().WriteHeader(503)
 		return
 	}
-	s, ok := a.state.Handlers[host]
+	s, ok := a.state.Handlers[hostName]
 	if !ok {
 		ctx.Response().WriteHeader(523)
-		logx.Warn("Host not found", "host", host)
+		logx.Warn("Host not found", "host", hostName)
 		return
 	}
 

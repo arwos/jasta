@@ -1,4 +1,4 @@
-package snapshot
+package host
 
 import (
 	"fmt"
@@ -7,19 +7,19 @@ import (
 	"strings"
 )
 
-func NormalizeHost(raw string) (string, error) {
+func Normalize(raw string) (string, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" || strings.ContainsAny(value, "/\\?#@") {
 		return "", fmt.Errorf("invalid host %q", raw)
 	}
 
-	var host string
+	var hostname string
 	if strings.HasPrefix(value, "[") {
 		end := strings.IndexByte(value, ']')
 		if end < 0 {
 			return "", fmt.Errorf("invalid bracketed host %q", raw)
 		}
-		host = value[1:end]
+		hostname = value[1:end]
 		suffix := value[end+1:]
 		if suffix != "" {
 			if !strings.HasPrefix(suffix, ":") {
@@ -29,7 +29,7 @@ func NormalizeHost(raw string) (string, error) {
 				return "", err
 			}
 		}
-		ip := net.ParseIP(host)
+		ip := net.ParseIP(hostname)
 		if ip == nil {
 			return "", fmt.Errorf("bracketed host %q is not an IP address", raw)
 		}
@@ -42,7 +42,7 @@ func NormalizeHost(raw string) (string, error) {
 		}
 		var port string
 		var err error
-		host, port, err = net.SplitHostPort(value)
+		hostname, port, err = net.SplitHostPort(value)
 		if err != nil {
 			return "", fmt.Errorf("invalid host %q: %w", raw, err)
 		}
@@ -50,21 +50,21 @@ func NormalizeHost(raw string) (string, error) {
 			return "", err
 		}
 	} else {
-		host = value
+		hostname = value
 	}
 
-	if ip := net.ParseIP(host); ip != nil {
+	if ip := net.ParseIP(hostname); ip != nil {
 		return ip.String(), nil
 	}
-	host = strings.TrimSuffix(host, ".")
-	if host == "" {
+	hostname = strings.TrimSuffix(hostname, ".")
+	if hostname == "" {
 		return "", fmt.Errorf("invalid empty host %q", raw)
 	}
-	host = strings.ToLower(host)
-	if len(host) > 253 {
+	hostname = strings.ToLower(hostname)
+	if len(hostname) > 253 {
 		return "", fmt.Errorf("domain %q exceeds 253 bytes", raw)
 	}
-	for _, label := range strings.Split(host, ".") {
+	for _, label := range strings.Split(hostname, ".") {
 		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
 			return "", fmt.Errorf("invalid domain label in %q", raw)
 		}
@@ -74,7 +74,7 @@ func NormalizeHost(raw string) (string, error) {
 			}
 		}
 	}
-	return host, nil
+	return hostname, nil
 }
 
 func validatePort(port string) error {
