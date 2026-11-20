@@ -33,6 +33,7 @@ func Listen(path string, apply func(Snapshot) error) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen on reload socket %q: %w", path, err)
 	}
+	// #nosec G302 -- The admin group sends snapshots; world access stays disabled.
 	if err = os.Chmod(path, 0660); err != nil {
 		_ = listener.Close()
 		_ = os.Remove(path)
@@ -68,7 +69,7 @@ func (s *Server) serve() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	var request Snapshot
@@ -98,7 +99,7 @@ func Send(path string, data []byte) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("connect to web reload socket: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
 	if _, err = conn.Write(data); err != nil {
 		return 0, fmt.Errorf("send snapshot: %w", err)
@@ -115,6 +116,9 @@ func Send(path string, data []byte) (uint64, error) {
 	}
 	if result.Error != "" {
 		return result.Revision, fmt.Errorf("web rejected snapshot: %s", result.Error)
+	}
+	if err = conn.Close(); err != nil {
+		return 0, fmt.Errorf("close reload connection: %w", err)
 	}
 	return result.Revision, nil
 }

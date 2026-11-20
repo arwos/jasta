@@ -132,6 +132,7 @@ func authorizeDomain(ctx context.Context, client ACMEClient, domain, challengeRo
 	if err := os.MkdirAll(challengeRoot, 0o750); err != nil {
 		return nil, fmt.Errorf("create HTTP-01 challenge root: %w", err)
 	}
+	// #nosec G302 -- Nginx traverses this group-readable root; only admin can write.
 	if err := os.Chmod(challengeRoot, 0o2750); err != nil {
 		return nil, fmt.Errorf("set HTTP-01 challenge root permissions: %w", err)
 	}
@@ -186,6 +187,7 @@ func authorizeHTTP01(ctx context.Context, client ACMEClient, authorizationURL, d
 		return fmt.Errorf("create HTTP-01 challenge path: %w", err)
 	}
 	for _, directory := range []string{filepath.Join(challengeRoot, ".well-known"), filepath.Dir(challengePath)} {
+		// #nosec G302 -- Nginx group membership is required to serve HTTP-01 tokens.
 		if err = os.Chmod(directory, 0o2750); err != nil {
 			return fmt.Errorf("set HTTP-01 challenge directory permissions: %w", err)
 		}

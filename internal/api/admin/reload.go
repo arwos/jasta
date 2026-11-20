@@ -44,10 +44,10 @@ func ReloadCommand(_ context.Context, _ plugin.DIResolver, setter console.Comman
 	setter.ExecFunc(func(snapshotPath, socketPath string) {
 		file, err := os.Open(snapshotPath)
 		console.FatalIfErr(err, "open snapshot")
-		defer file.Close()
-
 		data, err := io.ReadAll(io.LimitReader(file, snapshot.MaxSnapshotBytes+1))
+		closeErr := file.Close()
 		console.FatalIfErr(err, "read snapshot")
+		console.FatalIfErr(closeErr, "close snapshot")
 		revision, err := snapshot.Send(socketPath, data)
 		console.FatalIfErr(err, "reload web")
 		console.Infof("Activated site snapshot revision %d", revision)
