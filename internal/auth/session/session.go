@@ -356,6 +356,41 @@ func (m *Manager) RevokeSession(ctx context.Context, database orm.Stmt, sessionI
 	})
 }
 
+// SessionActive reports whether the verified access token's backing refresh
+// session is still current. This makes logout, refresh rotation, and local
+// owner reset take effect for access tokens immediately.
+func (m *Manager) SessionActive(ctx context.Context, database orm.Stmt, sessionID string) (bool, error) {
+	if m == nil || database == nil {
+		return false, errors.New("session manager and database are required")
+	}
+	if _, err := uuid.Parse(sessionID); err != nil {
+		return false, ErrInvalidCredentials
+	}
+	active := false
+	err := database.CallContext(ctx, "check owner auth session", func(ctx context.Context, db orm.DB) error {
+		queryer, ok := db.(interface {
+			QueryRowContext(context.Context, string, ...any) *sql.Row
+		})
+		if !ok {
+			return errors.New("database connection does not support row queries")
+		}
+		var revokedAt sql.NullInt64
+		var replacedBy sql.NullString
+		var expiresAt int64
+		err := queryer.QueryRowContext(ctx, `SELECT revoked_at, replaced_by_id, expires_at
+			FROM auth_sessions WHERE id = ?`, sessionID).Scan(&revokedAt, &replacedBy, &expiresAt)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		active = !revokedAt.Valid && !replacedBy.Valid && expiresAt > m.now().Unix()
+		return nil
+	})
+	return active, err
+}
+
 // VerifyAccess verifies signature, key, issuer, audience, lifetime, and claims.
 func (m *Manager) VerifyAccess(raw string) (AccessClaims, error) {
 	if m == nil || m.signer == nil || raw == "" || len(raw) > 8192 {

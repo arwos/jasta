@@ -1,6 +1,6 @@
 # QA F04 — Владелец, API и прогресс
 
-F04-T01 и F04-T02 реализованы как CLI и auth primitives. HTTP/JSON-RPC wiring, WebSocket и multipart ещё не реализованы.
+F04-T01 и F04-T02 реализованы как CLI и auth primitives. F04-T03 подключает JSON-RPC admin-команды. Write API registry/config и операции выдачи сертификатов ещё не реализованы; WebSocket и multipart относятся к F04-T04/T05.
 
 ## Сценарии
 
@@ -11,7 +11,10 @@ F04-T01 и F04-T02 реализованы как CLI и auth primitives. HTTP/JS
 - [x] Refresh-сессия переживает пересоздание manager; rotation сохраняет абсолютные 7 дней, replay/expiry/revoke/logout отклоняются.
 - [ ] CLI key-file permissions и интерактивный ввод требуют ручной проверки на установленном Debian/Ubuntu сервисе.
 - [x] Logout немедленно прекращает refresh. Выданный access JWT остаётся валиден до 15 минут, пока endpoint не проверяет session ID/revoke в SQLite.
-- JSON-RPC: валидные/невалидные payload, неизвестная команда, unauthenticated запрос к protected методу, ошибки валидации.
+- [x] JSON-RPC protected handler отклоняет запрос без bearer token и после logout; session rotation/logout сразу блокируют прежний JWT через проверку SQLite.
+- [x] API contracts разделяют публичные auth.login/auth.refresh и protected owner методы; URL источников, секреты, certificate paths и private keys отсутствуют в read responses.
+- [ ] Полный HTTP JSON-RPC transport: валидные/невалидные payload, неизвестная команда и запуск admin listener на Debian сервисе требуют ручного integration прогона.
+- [ ] Write API для registry/config deployment и certificate issuance остаются за границей выполненной части F04-T03.
 - WebSocket: разрешённая сессия, неверный Origin, истёкшая сессия, reconnect, job success/failure/cancel.
 - Multipart: файл в пределах лимита, превышение, повреждённый multipart body, отключение клиента посреди загрузки.
 - В логах отсутствуют пароль, TOTP, recovery codes, JWT, registry credentials и подписанный URL.
@@ -25,3 +28,7 @@ F04-T01 и F04-T02 реализованы как CLI и auth primitives. HTTP/JS
 - `/tmp/jasta-f04-t02 admin --help` — shows `owner-bootstrap` and `owner-reset` (2026-11-20).
 - `golangci-lint run --new ./internal/auth/owner ./internal/auth/session` — 0 new issues (2026-11-20).
 - `make lint` — FAIL: четыре ранее существовавших замечания в `internal/api/admin/reload.go` и `internal/snapshot/socket.go`; новая auth/session реализация ошибок lint не добавила.
+- `go test ./...` — PASS (2026-11-20); включает `TestProtectedJSONRPCRequiresActiveOwnerSession` и проверку отзыва старой access session при refresh/logout.
+- `go build -o /tmp/jasta-f04-t03 ./cmd/jasta` — PASS, exit 0; Go сообщил, что не может обновить stat cache в read-only module cache (2026-11-20).
+- `golangci-lint run --new ./internal/api/admin ./internal/api ./internal/auth/session` (`GOLANGCI_LINT_CACHE=/tmp/jasta-lint-cache`) — 0 issues (2026-11-20).
+- `git diff --check` — PASS (2026-11-20).

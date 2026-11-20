@@ -2,6 +2,7 @@ package api
 
 import (
 	"go.osspkg.com/goppy/v3/plugin"
+	"go.osspkg.com/goppy/v3/plugins/web/jsonrpc"
 
 	"go.arwos.org/jasta/internal/api/admin"
 	"go.arwos.org/jasta/internal/api/public"
@@ -9,6 +10,14 @@ import (
 )
 
 var (
-	AdminPlugins  = plugin.Inject(admin.Plugin, storage.Plugin())
+	AdminPlugins = plugin.Inject(
+		admin.Plugin,
+		storage.Plugin(),
+		jsonrpc.WithTransport(jsonrpc.Path("/jsonrpc")),
+		func(transport jsonrpc.Transport, api *admin.Api) error {
+			transport.Add(api)
+			return nil
+		},
+	)
 	PublicPlugins = plugin.Inject(public.Plugin)
 )

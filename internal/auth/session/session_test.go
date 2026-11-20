@@ -34,6 +34,9 @@ func TestLoginJWTStableAcrossManagerRestartAndRefreshRotationLogout(t *testing.T
 	if err != nil || claims.Subject != "owner" || claims.SessionID == "" {
 		t.Fatalf("VerifyAccess() claims=%#v err=%v", claims, err)
 	}
+	if active, activeErr := manager.SessionActive(ctx, stmt, claims.SessionID); activeErr != nil || !active {
+		t.Fatalf("SessionActive() before revoke active=%v err=%v", active, activeErr)
+	}
 	header, _, err := manager.signer.Verify([]byte(first.AccessToken))
 	if err != nil {
 		t.Fatalf("verify JWT header: %v", err)
@@ -99,6 +102,9 @@ func TestLoginJWTStableAcrossManagerRestartAndRefreshRotationLogout(t *testing.T
 	if err != nil {
 		t.Fatalf("Refresh(): %v", err)
 	}
+	if active, activeErr := manager.SessionActive(ctx, stmt, claims.SessionID); activeErr != nil || active {
+		t.Fatalf("SessionActive() after refresh rotation active=%v err=%v, want inactive", active, activeErr)
+	}
 	if !second.RefreshExpiresAt.Equal(first.RefreshExpiresAt) {
 		t.Fatalf("rotation extended absolute refresh expiry: first=%s second=%s", first.RefreshExpiresAt, second.RefreshExpiresAt)
 	}
@@ -107,6 +113,13 @@ func TestLoginJWTStableAcrossManagerRestartAndRefreshRotationLogout(t *testing.T
 	}
 	if err = manager.Logout(ctx, stmt, first.RefreshToken); err != nil {
 		t.Fatalf("Logout(): %v", err)
+	}
+	rotatedClaims, err := manager.VerifyAccess(second.AccessToken)
+	if err != nil {
+		t.Fatalf("VerifyAccess() rotated token: %v", err)
+	}
+	if active, activeErr := manager.SessionActive(ctx, stmt, rotatedClaims.SessionID); activeErr != nil || active {
+		t.Fatalf("SessionActive() after logout active=%v err=%v, want inactive", active, activeErr)
 	}
 	if _, err = manager.Refresh(ctx, stmt, second.RefreshToken); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("Refresh() after logout error=%v, want ErrInvalidCredentials", err)

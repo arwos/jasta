@@ -33,6 +33,32 @@
 - F04-T01: CLI bootstrap/reset и owner primitives добавлены.
 - F04-T02: owner login, stable EdDSA JWT, persistent refresh rotation, logout и session revoke реализованы как auth primitives; HTTP/JSON-RPC wiring входит в F04-T03.
 
+## F04-T03: JSON-RPC контракт
+
+Admin принимает JSON-RPC POST на `/jsonrpc` своего Goppy server tag. Bootstrap/reset владельца остаются только локальными CLI-командами. Токены передаются заголовком `Authorization: Bearer <access_token>`; cookies и CORS credentials не используются. `auth.login` и `auth.refresh` публичные, `auth.logout` требует активный access token, остальные методы требуют активный owner session. Каждая защищённая команда проверяет JWT и строку `auth_sessions` в SQLite: ротация refresh и logout сразу прекращают доступ старого access JWT.
+
+Методы, параметры и ответы:
+
+| Метод | Доступ | Параметры | Ответ |
+|---|---|---|---|
+| `auth.login` | публичный | `{password, second_factor}`; second_factor — TOTP или recovery code | `Tokens`: access/refresh token и сроки действия |
+| `auth.refresh` | публичный | `{refresh_token}` | новая пара `Tokens`; старый refresh и его access session отзываются |
+| `auth.logout` | owner bearer | `{refresh_token}` | `{ok:true}`; отзывает указанную сессию и её descendants |
+| `auth.me` | owner bearer | `{}` | `{subject:"owner"}` |
+| `sites.list` | owner bearer | `{}` | массив `SiteSummary`: id, name, app_type, domains, timestamps, active_release_id |
+| `sites.get` | owner bearer | `{site_id}` | один `SiteSummary` |
+| `sites.config.get` | owner bearer | `{site_id}` | `{site_id, app_type, revision, config}` для последнего снимка |
+| `sites.config.validate` | owner bearer | `{app_type, config}` | `{valid:true}` либо ошибка `-32602` |
+| `sources.list` | owner bearer | `{}` | id, name, auth_type, updated_at; URL и секреты не возвращаются |
+| `releases.history` | owner bearer | `{site_id}` | история, активная пара и занимаемое место |
+| `releases.activate` | owner bearer | `{site_id, release_id}` | `{site_id, release_id, snapshot_revision}` |
+| `releases.rollback` | owner bearer | `{site_id, release_id}` | `{site_id, release_id, snapshot_revision}` |
+| `certificates.list` | owner bearer | `{}` | id, domain, issuer, status, validity; файловые пути и ключи не возвращаются |
+
+Ошибки JSON-RPC: `-32602` — отсутствующие, неизвестные или некорректные параметры; `-32001` — неверные credentials или недействительная owner session; `-32004` — запрошенный сайт/config отсутствует или релиз не удалось активировать; `-32603` — внутренняя ошибка без текста БД/файловой системы. Неизвестный метод получает стандартную Goppy ошибку unsupported method. Ошибки валидации конфигурации намеренно не возвращают внутренние пути.
+
+F04-T03 подключает list/get/validate и lifecycle методов, поддержанных текущими хранилищем и deployment-сервисами. Изменение config активного сайта происходит через создание релиза с config snapshot и его активацию. Загрузка архива появляется в F04-T05; управление registry credentials и выпуск/удаление сертификатов требуют соответствующих write/ACME потоков и остаются в F05/F06, поэтому текущие `sources.list` и `certificates.list` read-only. Bootstrap по HTTP намеренно отсутствует.
+
 ## Источники
 
 - [Goppy docs](https://goppy.osspkg.com/) и локальный исходный код закреплённой версии v3.2.3.
