@@ -11,6 +11,7 @@ http:
 
 admin:
     tag: main
+    certificates_root: /var/lib/jasta/certificates
     nginx:
         admin_domain: ""
         config_path: /etc/nginx/conf.d/jasta.conf

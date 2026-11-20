@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,7 +68,7 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 		conf: Config{Nginx: nginx.Settings{
 			AdminDomain: "admin.example.test", ConfigPath: filepath.Join(nginxDir, "jasta.conf"),
 			ChallengeRoot: filepath.Join(nginxDir, "challenges"),
-		}},
+		}, CertificatesRoot: filepath.Join(nginxDir, "certificates")},
 		database: database, auth: manager, wsServer: ws.NewServer(ctx), nginxRunner: nginxRunner,
 	}
 	api.jobs, err = jobs.New(database.Tag("master"))
@@ -114,6 +115,46 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	}
 	if nginxResult.(map[string]any)["admin_domain"] != "admin.example.test" || len(nginxRunner.calls) != 3 {
 		t.Fatalf("nginx.apply result=%#v calls=%#v", nginxResult, nginxRunner.calls)
+	}
+	certificateHandler := api.JSONRPCApiHandlers()["certificates.issue_self_signed"]
+	if _, err = certificateHandler(ctx, web.NewCtx(httptest.NewRecorder(), httptest.NewRequest("POST", "/jsonrpc", nil)), json.RawMessage(`{"domain":"admin.example.test"}`)); err == nil {
+		t.Fatal("certificates.issue_self_signed accepted a request without owner bearer token")
+	}
+	certificateRequest := httptest.NewRequest("POST", "/jsonrpc", nil)
+	certificateRequest.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	certificateResult, err := certificateHandler(ctx, web.NewCtx(httptest.NewRecorder(), certificateRequest), json.RawMessage(`{"domain":"admin.example.test"}`))
+	if err != nil {
+		t.Fatalf("certificates.issue_self_signed: %v", err)
+	}
+	encodedCertificate, err := json.Marshal(certificateResult)
+	if err != nil {
+		t.Fatalf("marshal certificate response: %v", err)
+	}
+	if strings.Contains(string(encodedCertificate), "private_key_path") || strings.Contains(string(encodedCertificate), "certificate_path") {
+		t.Fatalf("certificate response exposed file paths: %s", encodedCertificate)
+	}
+	certificateJSON, _ := json.Marshal(certificateResult)
+	if err = json.Unmarshal(certificateJSON, &map[string]any{}); err != nil {
+		t.Fatalf("certificate response is not JSON-serializable: %v", err)
+	}
+	adminCertificateConfig, err := os.ReadFile(api.conf.Nginx.ConfigPath)
+	if err != nil {
+		t.Fatalf("read Nginx config before certificate apply: %v", err)
+	}
+	if strings.Contains(string(adminCertificateConfig), "listen 443 ssl") {
+		t.Fatal("Nginx config used a certificate before the next apply")
+	}
+	certificateApplyRequest := httptest.NewRequest("POST", "/jsonrpc", nil)
+	certificateApplyRequest.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	if _, err = api.JSONRPCApiHandlers()["nginx.apply"](ctx, web.NewCtx(httptest.NewRecorder(), certificateApplyRequest), json.RawMessage(`{}`)); err != nil {
+		t.Fatalf("nginx.apply after certificate issue: %v", err)
+	}
+	adminCertificateConfig, err = os.ReadFile(api.conf.Nginx.ConfigPath)
+	if err != nil {
+		t.Fatalf("read Nginx config after certificate apply: %v", err)
+	}
+	if !strings.Contains(string(adminCertificateConfig), "listen 443 ssl") || !strings.Contains(string(adminCertificateConfig), "/certificate.pem") {
+		t.Fatalf("nginx.apply did not load local admin certificate:\n%s", adminCertificateConfig)
 	}
 	api.wsServer.SetEventHandler(api.authenticateWebSocket, wsAuthEvent)
 	api.wsServer.SetEventHandler(api.subscribeWebSocket, wsSubscribeEvent)

@@ -1,6 +1,6 @@
 # QA F05 — Nginx и сертификаты
 
-F05-T01 реализован как renderer, защищённая JSON-RPC команда и transactional file apply. Self-signed/ACME TLS пока не реализованы.
+F05-T01 реализован как renderer, защищённая JSON-RPC команда и transactional file apply. F05-T02 добавляет self-signed TLS для локальных доменов/IP. ACME HTTP-01 пока не реализован.
 
 ## Сценарии
 
@@ -11,7 +11,10 @@ F05-T01 реализован как renderer, защищённая JSON-RPC ко
 - Unix-права admin service на include/challenge и systemd reload policy проверяются в F07-T01 на Debian/Ubuntu.
 - Live проверки системным `nginx -t` и reload требуют установленного Nginx сервиса и выполняются на Debian/Ubuntu deployment.
 - HTTP-01 challenge доступен на порту 80 под ожидаемым path; общий redirect и RPA не перехватывают challenge.
-- Создать self-signed сертификат с SAN, проверить mismatched hostname и permission modes.
+- [x] Создать self-signed сертификат с SAN, проверить hostname, подпись, non-CA свойства и permission modes; проверить отдельный каталог и запись metadata.
+- [x] Отклонить публичные домены/IP и wildcard; повторный выпуск домена не оставляет orphan files.
+- [x] Проверить, что сертификат admin-домена включается в следующую генерируемую Nginx конфигурацию, а protected RPC не раскрывает пути.
+- Unix-группа admin/Nginx для доступа к key mode 0640 проверяется вместе с установкой в F07-T01.
 - Успешный ACME issuance, renewal до срока, сеть недоступна, CA rate limit/challenge error; существующий валидный сертификат продолжает обслуживаться при отказе.
 - Проверить, что wildcard и DNS-01 настройки отклоняются явно.
 
@@ -24,4 +27,11 @@ F05-T01 реализован как renderer, защищённая JSON-RPC ко
 - `GOLANGCI_LINT_CACHE=/tmp/jasta-lint-cache golangci-lint run --new ./internal/pkg/nginx ./internal/api/admin ./cmd/jasta` — 0 new issues (2026-11-20).
 - `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f05-t01 ./cmd/jasta` — PASS, exit 0; GVM emitted a read-only stat-cache write warning (2026-11-20).
 - `git diff --check` — PASS (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./internal/certificates ./internal/api/admin ./internal/pkg/nginx` — PASS (2026-11-20, F05-T02).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./...` — PASS (2026-11-20, F05-T02).
+- `GOCACHE=/tmp/jasta-go-cache go test -race -count=1 ./internal/certificates ./internal/api/admin ./internal/pkg/nginx` — PASS (2026-11-20, F05-T02).
+- `GOCACHE=/tmp/jasta-go-cache go vet ./...` — PASS (2026-11-20, F05-T02).
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-lint-cache golangci-lint run --new ./...` — 0 new issues (2026-11-20, F05-T02).
+- `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f05-t02 ./cmd/jasta` — PASS, exit 0; GVM emitted a read-only stat-cache write warning (2026-11-20).
+- `git diff --check` — PASS (2026-11-20, F05-T02).
 - Live `nginx -t` and systemd reload were not run because the Nginx binary is not installed in this environment.
