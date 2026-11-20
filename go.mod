@@ -1,6 +1,6 @@
 module go.arwos.org/jasta
 
-go 1.26.8
+go 1.26.11
 
 require (
 	github.com/google/uuid v1.6.0
@@ -12,8 +12,8 @@ require (
 	go.osspkg.com/ioutils v0.7.4
 	go.osspkg.com/logx v0.6.1
 	go.osspkg.com/markdown v0.1.0
-	golang.org/x/crypto v0.58.0
-	golang.org/x/term v0.47.0
+	golang.org/x/crypto v0.59.0
+	golang.org/x/term v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -35,6 +35,6 @@ require (
 	go.osspkg.com/routine v0.4.1 // indirect
 	go.osspkg.com/syncing v0.5.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 )
