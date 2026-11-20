@@ -19,11 +19,18 @@
 
 - Password hashes, TOTP secrets, recovery-code hashes и JWT private key не возвращать через API.
 - TOTP секрет показывать только при enrollment; recovery codes показывать только один раз и хранить в виде проверяемых хэшей.
+- Локальный TOTP-секрет шифруется AES-256-GCM; ключ берётся из `/etc/jasta/master.key` (raw 32 bytes или 64 hex characters), файл должен принадлежать root и иметь режим `0600`/`0640`.
+- Bootstrap: `jasta admin owner-bootstrap` (интерактивный скрытый ввод пароля, затем подтверждение TOTP до записи владельца). Сброс: `jasta admin owner-reset` с явным вводом `RESET`. Команды требуют интерактивный терминал.
+- Пароль хранится как Argon2id (64 MiB, 3 итерации, 2 потока); recovery-коды — случайные 128-битные значения с SHA-256 хэшами и одноразовым атомарным потреблением.
 - Учитывать CSRF и cookie flags, если токены кладутся в cookie; при Bearer-токене ограничить CORS admin origin и проверять WebSocket Origin.
 - Логировать тип и ID операции, исключая пароли, TOTP, tokens, source credentials и signed URLs.
+
+## Выполнено
+
+- F04-T01: CLI bootstrap/reset и owner primitives добавлены. Вход/JWT ещё не реализован; F04-T02 должен допускать вход только при `totp_confirmed = 1`.
 
 ## Источники
 
 - [Goppy docs](https://goppy.osspkg.com/) и локальный исходный код закреплённой версии v3.2.3.
 - [Goppy JWT source tree](https://github.com/osspkg/goppy/tree/v3.2.3/plugins/auth/token) — API и конфигурацию сверять с закреплённым тегом.
-- Новую TOTP-зависимость не зафиксировали; до её выбора сверить существующие OSSPkg пакеты и официальный API. Контракт входа/TOTP при этом уже определён.
+- TOTP реализован через `github.com/pquerna/otp` v1.5.0 с параметрами 30 секунд, SHA-1 и шестизначным кодом; эти параметры должны оставаться согласованы с authenticator URI.

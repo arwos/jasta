@@ -44,6 +44,8 @@ func main() {
 		app.Command(admin.RollbackCommand)
 		app.Command(admin.ReloadCommand)
 		app.Command(admin.ImportConfigsCommand)
+		app.Command(admin.OwnerBootstrapCommand)
+		app.Command(admin.OwnerResetCommand)
 	}
 	app.Run()
 }
