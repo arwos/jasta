@@ -7,12 +7,9 @@ import (
 
 	"go.osspkg.com/goppy/v3/pkg/console"
 	"go.osspkg.com/goppy/v3/plugin"
-	"go.osspkg.com/goppy/v3/plugins/orm"
-	"go.osspkg.com/goppy/v3/plugins/orm/clients/sqlite"
 
 	"go.arwos.org/jasta/internal/deployment/activation"
 	"go.arwos.org/jasta/internal/snapshot"
-	"go.arwos.org/jasta/internal/storage"
 )
 
 func ActivateCommand(ctx context.Context, _ plugin.DIResolver, setter console.CommandSetter) {
@@ -24,14 +21,9 @@ func ActivateCommand(ctx context.Context, _ plugin.DIResolver, setter console.Co
 		flags.StringVar("socket", "/run/jasta/web-reload.sock", "Path to the jasta web reload socket")
 	})
 	setter.ExecFunc(func(siteID, releaseID, databasePath, socketPath string) {
-		database := orm.New(ctx)
+		database, err := openAdminDatabase(ctx, databasePath)
+		console.FatalIfErr(err, "open admin database")
 		defer database.Close()
-		dbConfig := &sqlite.ConfigGroup{Pool: []sqlite.Config{{
-			Tags: "master", File: databasePath, Cache: "private", Mode: "rwc", Journal: "WAL",
-			LockingMode: "EXCLUSIVE", OtherParams: "_foreign_keys=on",
-		}}}
-		console.FatalIfErr(database.ApplyConfig(sqlite.Name, dbConfig), "connect database")
-		console.FatalIfErr(storage.Migrate(ctx, database), "migrate database")
 		revision, err := activation.Activate(ctx, database.Tag("master"), siteID, releaseID, func(_ context.Context, next snapshot.Snapshot) error {
 			data, marshalErr := json.Marshal(next)
 			if marshalErr != nil {

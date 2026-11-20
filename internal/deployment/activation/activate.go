@@ -92,6 +92,13 @@ func Activate(ctx context.Context, database orm.Stmt, siteID, releaseID string, 
 	return revision, nil
 }
 
+// Rollback reactivates a previously published release. The release record
+// owns the config snapshot ID, so the selected content and configuration are
+// restored as one pair through the same reload transaction as a new release.
+func Rollback(ctx context.Context, database orm.Stmt, siteID, releaseID string, reload ReloadFunc) (uint64, error) {
+	return Activate(ctx, database, siteID, releaseID, reload)
+}
+
 func nextRevision(ctx context.Context, tx *sql.Tx) (uint64, error) {
 	var value string
 	err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", revisionSetting).Scan(&value)

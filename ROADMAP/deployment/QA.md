@@ -85,4 +85,22 @@
 - `go run ./cmd/jasta admin activate --help --config=config/admin.dev.yaml` — зарегистрированы флаги `site`, `release`, `database`, `socket`.
 - `go test -count=1 -run TestActivateReloadsWebWithoutRestartAndServesWholeNewSnapshot ./internal/deployment/activation` с разрешением на Unix socket — пройдено; успешная активация обслуживает новый контент, отказ web на невалидном снимке сохраняет прежний runtime и SQLite pair.
 
-Сценарии истории, ручного rollback и использования диска относятся к F03-T05.
+### F03-T05 — rollback и история
+
+Проверено:
+
+- Rollback восстанавливает выбранный release и тот config snapshot, который связан с ним в БД; другие активные сайты остаются в snapshot.
+- При ошибке reload прежняя активная пара остаётся в БД; каталоги текущего и выбранного релизов сохраняются.
+- History возвращает все версии, отмечает текущую пару и считает размер фактически сохранённых content/config/metadata файлов.
+- History отклоняет content path, указывающий вне releases root.
+- `jasta admin history` показывает current release/config/revision, список версий, source/status/timestamp и размеры; `jasta admin rollback` принимает site/release IDs и reload socket.
+- Unix socket integration проверил успешный rollback на живом runtime после reload без перезапуска; невалидный снимок отклоняется с сохранением текущей пары.
+
+Команды и результаты:
+
+- `go test -count=1 ./...` — пройдено; sandbox-only UDS test пропускается без разрешения на Unix socket.
+- `go test -count=1 -run TestActivateReloadsWebWithoutRestartAndServesWholeNewSnapshot ./internal/deployment/activation` с разрешением на Unix socket — пройдено, включая rollback и отказ reload.
+- `go vet ./...` — пройдено.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./internal/deployment/release ./internal/deployment/activation ./cmd/jasta` — 0 issues.
+- `go run ./cmd/jasta admin history --help --config=config/admin.dev.yaml` и `go run ./cmd/jasta admin rollback --help --config=config/admin.dev.yaml` — команды зарегистрированы и показывают требуемые параметры.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./...` — остаются 4 замечания в прежних `internal/api/admin/reload.go` и `internal/snapshot/socket.go`.

@@ -53,3 +53,10 @@
 - Монотонная ревизия web снимка хранится в `settings.active_snapshot_revision`. Candidate передаётся callback reload до commit DB; неудачная подготовка/отправка откатывает новую пару и ревизию.
 - `jasta admin activate --site <id> --release <id>` применяет операцию к admin SQLite и отправляет снимок через существующий `/run/jasta/web-reload.sock`. Web полностью валидирует snapshot перед заменой состояния и не перезапускается. Одноразовую CLI-команду запускать без параллельного admin процесса, поскольку SQLite настроена на `EXCLUSIVE` locking.
 - В админском JSON-RPC deployment должен вызывать тот же `activation.Activate`; создание защищённого RPC метода и job-прогресса остаётся F04.
+
+## Реализация F03-T05
+
+- `activation.Rollback` выбирает существующий `ready` release и делегирует парное переключение `Activate`; ID снимка берётся из `releases.config_snapshot_id`, поэтому rollback нельзя выполнить с отдельно выбранным несовместимым конфигом.
+- `release.History` возвращает все DB-релизы сайта, текущие release/config IDs и revision, source/status/time каждого релиза, размер каждого каталога и общий логический объём файлов. В размер входят content, `config.json`, `metadata.json` и ссылки; symlinks учитываются без перехода по ним.
+- История проверяет, что записанный content path соответствует `releases_root/<release-id>/content`, и отказывает при путях вне release tree или отсутствующих каталогах.
+- Добавлены локальные команды `jasta admin rollback` и `jasta admin history`. Из-за SQLite `EXCLUSIVE` locking использовать эти команды без параллельного admin-процесса. Все release-каталоги остаются на месте при успешном и неудачном rollback; ручное удаление в задачу не входит.

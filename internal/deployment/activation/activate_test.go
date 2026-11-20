@@ -82,6 +82,45 @@ func TestActivateRejectsReleaseFromAnotherSiteBeforeReload(t *testing.T) {
 	assertActivation(t, stmt, "site-1", "release-1", "config-1")
 }
 
+func TestRollbackRestoresSelectedConfigPairAndRetainsAllReleaseFiles(t *testing.T) {
+	stmt := activationDatabase(t)
+	roots := seedActivationData(t, stmt)
+	if _, err := Activate(context.Background(), stmt, "site-1", "release-2", func(context.Context, snapshot.Snapshot) error { return nil }); err != nil {
+		t.Fatalf("activate newer release: %v", err)
+	}
+	var received snapshot.Snapshot
+	revision, err := Rollback(context.Background(), stmt, "site-1", "release-1", func(_ context.Context, next snapshot.Snapshot) error {
+		received = next
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Rollback(): %v", err)
+	}
+	if revision != 2 || string(received.Sites[0].Config) != spaConfig(roots["release-1"], "one.test") {
+		t.Fatalf("rollback snapshot revision/config = %d/%s", revision, received.Sites[0].Config)
+	}
+	assertActivation(t, stmt, "site-1", "release-1", "config-1")
+	assertActivation(t, stmt, "site-2", "release-3", "config-3")
+	for _, releaseID := range []string{"release-1", "release-2", "release-3"} {
+		if _, err := os.Stat(filepath.Join(roots[releaseID], "index.html")); err != nil {
+			t.Fatalf("rollback removed %s content: %v", releaseID, err)
+		}
+	}
+	if value := setting(t, stmt, revisionSetting); value != "2" {
+		t.Fatalf("rollback revision = %q, want 2", value)
+	}
+	failedErr := errors.New("web reload failed")
+	if _, err = Rollback(context.Background(), stmt, "site-1", "release-2", func(context.Context, snapshot.Snapshot) error { return failedErr }); !errors.Is(err, failedErr) {
+		t.Fatalf("failed Rollback() error = %v, want reload failure", err)
+	}
+	assertActivation(t, stmt, "site-1", "release-1", "config-1")
+	for _, releaseID := range []string{"release-1", "release-2", "release-3"} {
+		if _, err := os.Stat(filepath.Join(roots[releaseID], "index.html")); err != nil {
+			t.Fatalf("failed rollback removed %s content: %v", releaseID, err)
+		}
+	}
+}
+
 func TestActivateReloadsWebWithoutRestartAndServesWholeNewSnapshot(t *testing.T) {
 	stmt := activationDatabase(t)
 	roots := seedActivationData(t, stmt)
@@ -183,6 +222,23 @@ func TestActivateReloadsWebWithoutRestartAndServesWholeNewSnapshot(t *testing.T)
 	}
 	if got := requestBody(t, &stateMu, &state, "one.test"); got != "release-2" {
 		t.Fatalf("visitor content after rejected reload = %q, want release-2", got)
+	}
+	if err = stmt.CallContext(context.Background(), "restore other active config", func(ctx context.Context, db orm.DB) error {
+		_, err := db.ExecContext(ctx, "UPDATE site_config_snapshots SET config_json = ? WHERE id = 'config-3'", spaConfig(roots["release-3"], "two.test"))
+		return err
+	}); err != nil {
+		t.Fatalf("restore other active config: %v", err)
+	}
+	rollbackRevision, err := Rollback(context.Background(), stmt, "site-1", "release-1", reload)
+	if err != nil {
+		t.Fatalf("Rollback(): %v", err)
+	}
+	if rollbackRevision != 3 {
+		t.Fatalf("rollback revision = %d, want 3", rollbackRevision)
+	}
+	assertActivation(t, stmt, "site-1", "release-1", "config-1")
+	if got := requestBody(t, &stateMu, &state, "one.test"); got != "release-1" {
+		t.Fatalf("visitor content after rollback = %q, want release-1", got)
 	}
 }
 

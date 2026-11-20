@@ -40,6 +40,8 @@ func main() {
 	app.Command(grab.Command)
 	if role == "admin" {
 		app.Command(admin.ActivateCommand)
+		app.Command(admin.HistoryCommand)
+		app.Command(admin.RollbackCommand)
 		app.Command(admin.ReloadCommand)
 		app.Command(admin.ImportConfigsCommand)
 	}
