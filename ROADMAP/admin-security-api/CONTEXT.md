@@ -70,7 +70,13 @@ Admin публикует WebSocket endpoint `GET /ws`. Handshake разреша�
 
 Событие содержит монотонный `sequence`, `job_id`, безопасные `kind`/`stage`, `status`, `progress`, необязательный `error_code` и `created_at`. Свободный текст ошибки не публикуется. Состояния job: queued, running, succeeded, failed, cancelled; succeeded требует 100%. История job доступна только сессии, создавшей job, и её refresh-rotation descendants/ancestors; отдельная сессия того же владельца не видит эти события. Session проверяется при auth, subscribe и live send; logout завершает доступ. События хранятся в SQLite таблице `job_events`, а миграция добавляет owner session к `jobs` без потери существующих записей.
 
-`internal/jobs.Manager` предоставляет durable create/publish/replay/live primitives. F04-T04 пока не подключает archive upload/deploy или сертификатные операции к publisher; F04-T05 и F05 должны создавать jobs и публиковать реальные стадии через этот manager. Интеграционный сценарий F04-T04 использует синтетический deploy job.
+`internal/jobs.Manager` предоставляет durable create/publish/replay/live primitives. F04-T05 подключает к нему получение и сборку загруженного архива; registry downloads и сертификатные операции должны публиковать собственные стадии через этот manager в дальнейших задачах. Интеграционный сценарий F04-T04 использует синтетический deploy job.
+
+## F04-T05: multipart upload
+
+Admin принимает `POST /uploads` с bearer access JWT и `multipart/form-data`. Обязательные части: `site_id`, отдельное поле `config` с JSON-конфигурацией сайта и ровно один файл `archive`. Конфиг ограничен 1 MiB; тело ограничивается лимитом архива плюс 2 MiB multipart overhead; сам архив проверяется на настроенный предел `admin.archive.max_archive_bytes` (по умолчанию 100 MiB). Поддерживаются ZIP и TAR.GZ. Для RPA загрузка отклоняется. Текущая owner session должна оставаться активной.
+
+Endpoint валидирует site/config, извлекает архив через `internal/pkg/archive` в приватную staging директорию с ограничениями по распакованному размеру и числу файлов, затем создаёт неизменяемый готовый release через `internal/deployment/release`. Новый release сохраняется со снимком переданного конфига, но не становится активным автоматически: активация и reload web остаются отдельной командой. Ответ `201` содержит `{job_id, release}` без локального `content_path`. Job проходит queued → received → validate → build → publish; ошибки валидации/сборки завершаются job со стабильным `error_code` и ответом `422` с `job_id`. Неверная сессия получает `401`, слишком большой запрос/файл — `413`, неверный multipart — `400`. Ошибки не включают локальные пути или текст исключений.
 
 ## Источники
 

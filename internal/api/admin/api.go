@@ -64,6 +64,7 @@ func (a *Api) Up() error {
 	a.wsServer.SetEventHandler(a.authenticateWebSocket, wsAuthEvent)
 	a.wsServer.SetEventHandler(a.subscribeWebSocket, wsSubscribeEvent)
 	route.Get("/ws", a.serveWebSocket)
+	route.Post("/uploads", a.uploadArchive)
 	return nil
 }
 
