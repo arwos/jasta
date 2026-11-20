@@ -15,15 +15,24 @@ control:
         - systemd
         - ca-certificates
         - nginx
+        - libc6
     conffiles:
         - /etc/jasta/config.yaml
-    build: goppy build --arch=%arch%
+        - /etc/jasta/admin.yaml
+        - /etc/jasta/websites/localhost.yaml
+    build: scripts/build-deb.sh %arch%
     preinst: scripts/jasta_preinst.sh
     postinst: scripts/jasta_postinst.sh
     prerm: scripts/jasta_prerm.sh
     postrm: scripts/jasta_postrm.sh
 data:
-    bin/jasta: build/jasta_%arch%
+    usr/bin/jasta: build/jasta_%arch%
     etc/jasta/config.yaml: config/config.yaml
+    etc/jasta/admin.yaml: config/admin.yaml
     etc/jasta/websites/localhost.yaml: config/websites/localhost.yaml
-    etc/systemd/system/jasta.service: init/jasta.service
+    etc/sudoers.d/jasta: init/jasta-admin.sudoers
+    etc/nginx/conf.d/jasta.conf: init/jasta-nginx.conf
+    usr/lib/systemd/system/jasta-web.service: init/jasta-web.service
+    usr/lib/systemd/system/jasta-admin.service: init/jasta-admin.service
+    usr/lib/sysusers.d/jasta.conf: init/jasta.sysusers
+    usr/lib/tmpfiles.d/jasta.conf: init/jasta.tmpfiles

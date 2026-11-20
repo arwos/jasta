@@ -12,9 +12,13 @@ lint:
 license:
 	goppy license
 
+.PHONY: build-admin
+build-admin:
+	cd ui/admin && pnpm build
+
 .PHONY: build
-build:
-	goppy build --arch=amd64
+build: build-admin
+	goppy build --arch=amd64 --cgo
 
 .PHONY: tests
 tests:
@@ -32,7 +36,7 @@ run_local:
 prerender_local:
 	go run cmd/jasta/main.go prerender
 
-deb: build
+deb:
 	deb-builder build
 
 local: build

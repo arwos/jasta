@@ -3,23 +3,22 @@ set -e
 
 
 do_install(){
-	if [ -f "/etc/systemd/system/jasta.service" ]; then
-		systemctl stop jasta
-		systemctl disable jasta
-		systemctl daemon-reload
-	fi
+	stop_legacy_service
 }
 
 do_upgrade(){
-	if [ -f "/etc/systemd/system/jasta.service" ]; then
-		systemctl stop jasta
-		systemctl disable jasta
+	stop_legacy_service
+}
+
+stop_legacy_service(){
+	if [ -f "/etc/systemd/system/jasta.service" ] || [ -f "/usr/lib/systemd/system/jasta.service" ]; then
+		systemctl disable --now jasta.service || true
 		systemctl daemon-reload
 	fi
 }
 
 do_other(){
-
+	:
 }
 
 case "$1" in

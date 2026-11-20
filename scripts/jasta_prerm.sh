@@ -3,23 +3,20 @@ set -e
 
 
 do_remove(){
-	if [ -f "/etc/systemd/system/jasta.service" ]; then
-		systemctl stop jasta
-		systemctl disable jasta
-		systemctl daemon-reload
-	fi
+	stop_services
 }
 
 do_upgrade(){
-	if [ -f "/etc/systemd/system/jasta.service" ]; then
-		systemctl stop jasta
-		systemctl disable jasta
-		systemctl daemon-reload
-	fi
+	stop_services
+}
+
+stop_services(){
+	systemctl disable --now jasta-admin.service jasta-web.service 2>/dev/null || true
+	systemctl disable --now jasta.service 2>/dev/null || true
 }
 
 do_other(){
-
+	:
 }
 
 case "$1" in

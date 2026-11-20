@@ -6,4 +6,5 @@ u jasta-web - "Jasta static content server" /var/lib/jasta /usr/sbin/nologin
 u jasta-admin - "Jasta administration service" /var/lib/jasta /usr/sbin/nologin
 m jasta-admin jasta-content
 m jasta-admin jasta-challenge
+m www-data jasta-content
 m www-data jasta-challenge

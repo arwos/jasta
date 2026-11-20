@@ -9,9 +9,9 @@
   4. При запуске admin восстанавливать только активный snapshot; одинаковая ревизия повторно принимается как idempotent retry.
   **Приёмка:** Unix-группы и systemd sandbox разделяют web/admin доступ; admin не запускает основной сервис от root и может менять только назначенные ресурсы.
 
-- [ ] F07-T02 — Выпускать Debian/Ubuntu `.deb` для amd64 и arm64
-  1. Обновить `.deb.yaml` на два бинарника/сервиса, frontend assets и необходимые каталоги/права.
-  2. Учитывать CGO toolchain и порядок post-install/restart/upgrade/remove.
+- [x] F07-T02 — Выпускать Debian/Ubuntu `.deb` для amd64 и arm64
+  1. Обновить `.deb.yaml` на сервисы web/admin, встроенные frontend assets и необходимые каталоги/права.
+  2. Учитывать CGO toolchain (native либо настроенный cross compiler) и порядок post-install/restart/upgrade/remove.
   **Приёмка:** оба пакета имеют правильную архитектуру и зависимости; upgrade сохраняет БД, конфиги, сертификаты и все релизы.
 
 - [ ] F07-T03 — Документировать ручной backup/restore

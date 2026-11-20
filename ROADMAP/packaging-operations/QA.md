@@ -4,7 +4,10 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 
 ## Сценарии
 
-- Устанавливать пакет на чистые Debian/Ubuntu amd64 и arm64; проверять `dpkg-deb --info` и содержимое архива.
+- [x] Собрать `.deb` amd64 с CGO и проверить `dpkg-deb --info`/`--contents`: указаны amd64, `systemd`, `ca-certificates`, `nginx`, `libc6`; архив содержит бинарник, оба config-файла, два systemd units, sysusers/tmpfiles, sudoers и Nginx shim с безопасными режимами файлов.
+- [ ] Собрать и проверить `.deb` arm64 на нативном arm64 builder либо с `aarch64-linux-gnu-gcc`; текущая среда amd64 не имеет этого cross compiler.
+- Для package builder нужны Go/Goppy, Make, Node.js/pnpm и CGO C toolchain целевой архитектуры; pnpm dependencies ставятся из lockfile перед `make deb`.
+- Проверить установку/upgrade/remove на чистых Debian/Ubuntu amd64 и arm64; upgrade сохраняет конфиги, SQLite, сертификаты и все releases.
 - [x] Systemd parser принял unit directives временных копий; ExecStart был заменён на `/usr/bin/true`, а связи между двумя units пропущены, поскольку реальный `/usr/bin/jasta` не установлен в test host.
 - [x] `systemd-sysusers --dry-run` разобрал users/groups; временный sandbox подтвердил memberships admin→content/challenge и Nginx worker→challenge.
 - [x] `systemd-tmpfiles --dry-run` разобрал каталоги и режимы; применение владельцев в fake root блокируется uid mapping окружения.
@@ -24,6 +27,12 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 - `GOLANGCI_LINT_CACHE=/tmp/jasta-lint-cache golangci-lint run --new ./...` — PASS, 0 issues.
 - `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f07-t01 ./cmd/jasta` — PASS; GVM сообщил о недоступном для записи stat cache, на результат сборки это не повлияло.
 - `git diff --check` — PASS.
+- `bash -n scripts/jasta_preinst.sh scripts/jasta_postinst.sh scripts/jasta_prerm.sh scripts/jasta_postrm.sh scripts/build-deb.sh` — PASS.
+- `cd ui/admin && pnpm install --frozen-lockfile --store-dir=/tmp/jasta-pnpm-store` и `make build-admin` — PASS; package build требует предварительно установленные lockfile-зависимости, затем пересобирает Vite UI.
+- `scripts/build-deb.sh amd64` — PASS: собирает UI, затем `jasta` с `CGO_ENABLED=1`.
+- `scripts/build-deb.sh arm64` — корректно остановилась до Go сборки с сообщением о недостающем `aarch64-linux-gnu-gcc`; прямой вызов goppy без cross compiler ошибочно передавал ARM assembly системному x86 gcc.
+- `deb-builder build` с временной amd64-only копией `.deb.yaml` — PASS; `dpkg-deb --info`, `--field`, `--contents` и control archive подтвердили архитектуру, зависимости, maintainer scripts, список conffiles, пути и modes. Реальная установка/удаление не выполнялись.
+- `systemd-sysusers --dry-run init/jasta.sysusers` и `systemd-tmpfiles --create --dry-run --root=... init/jasta.tmpfiles` — PASS, включая создаваемый Nginx managed include.
 - `systemd-analyze verify` на временных копиях двух units — PASS; в копиях `ExecStart` заменён на `/usr/bin/true`, а межсервисные зависимости убраны. Установленные units и реальный запуск сервисов не проверялись.
 - `systemd-sysusers --dry-run init/jasta.sysusers` и `systemd-tmpfiles --create --dry-run --root=... init/jasta.tmpfiles` разобрали декларации. Fake-root sysusers создал ожидаемые memberships. Применение tmpfiles-владельцев к fake root упёрлось в ограничения uid mapping.
 - `visudo -cf init/jasta-admin.sudoers` — правило разобрано; команда также вывела предупреждение, что `/etc/sudo.conf` в test host принадлежит uid 65534.
