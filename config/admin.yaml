@@ -11,6 +11,14 @@ http:
 
 admin:
     tag: main
+    nginx:
+        admin_domain: ""
+        config_path: /etc/nginx/conf.d/jasta.conf
+        challenge_root: /var/lib/jasta/acme-challenges
+        public_proxy: 127.0.0.1:15432
+        admin_proxy: 127.0.0.1:15433
+        admin_certificate: ""
+        admin_private_key: ""
 
 sqlite:
     - tags: master

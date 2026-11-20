@@ -10,14 +10,17 @@
 
 ## Текущее состояние
 
-- В репозитории есть `internal/pkg/nginx/command.go` и `config/nginx-default.conf`; текущая команда записывает default config непосредственно в `/etc/nginx/sites-available/default`.
-- `.deb.yaml` зависит от nginx, а текущий `jasta.service` одинарный и работает от `www-data`. Целевая установка должна заменить эту модель на отдельные сервисы и выделенную include-зону.
+- Legacy-команда `jasta nginx`, записывавшая конфиг в `/etc/nginx/sites-available/default`, удалена. F05-T01 добавляет renderer, atomic apply и защищённый `nginx.apply`; output по умолчанию — `/etc/nginx/conf.d/jasta.conf`.
+- `.deb.yaml` зависит от nginx, а текущий `jasta.service` одинарный и работает от `www-data`. F07-T01 должен разделить сервисы и выдать admin Unix-права только на include-файл, challenge root, `nginx -t` и `systemctl reload nginx`.
+- Генератор создаёт HTTP public blocks; admin HTTP блок обслуживает ACME challenge и перенаправляет остальной трафик на HTTPS. Если парные `admin_certificate`/`admin_private_key` заданы в `admin.nginx`, создаётся TLS server block с proxy на localhost admin listener и WebSocket upgrade только на `/ws`; F05-T02/T03 настраивают пути выпущенных сертификатов.
+- `nginx.apply` — защищённый owner JSON-RPC метод с пустыми params. Он группирует `site_domains` из admin SQLite, берёт admin host/listeners/output/cert paths только из root-managed config и не принимает пути, executable или shell strings от клиента.
+- Перед первым apply оператор задаёт `admin.nginx.admin_domain` в `/etc/jasta/admin.yaml`; сертификатные пути остаются пустыми до выпуска сертификата. Из-за этого generated HTTP admin block пока перенаправляет на HTTPS, а TLS proxy block появится после F05-T02/T03.
 
 ## Проверенные ограничения и источники
 
 - [Let’s Encrypt HTTP-01](https://letsencrypt.org/docs/challenge-types/) выполняется через порт 80 и не подходит для wildcard-сертификатов.
 - В проекте уже есть indirect `golang.org/x/crypto` v0.53.0. [Пакет Go ACME](https://pkg.go.dev/golang.org/x/crypto/acme) предоставляет ACME client и HTTP-01 path/response helpers; точную версию и API проверить против закреплённого Go toolchain.
-- Nginx [`-t` и `-s reload`](https://nginx.org/en/docs/switches.html): `-t` проверяет синтаксис и доступность файлов; reload запускает worker с новой конфигурацией и gracefully завершает старые.
+- Nginx [`-t` и `-s reload`](https://nginx.org/en/docs/switches.html): `-t` проверяет синтаксис и referenced files; reload запускает workers с новой конфигурацией и gracefully завершает старые. Jasta сначала проверяет isolated candidate и полную конфигурацию, rollback-ит include при ошибке и только после проверки вызывает `systemctl reload nginx`.
 
 ## Ограничения внедрения
 

@@ -34,7 +34,7 @@
 ## F01-T01 — Реализация
 
 - CLI выбирает роль по первому позиционному аргументу `web` или `admin`, затем передаёт оставшиеся флаги Goppy.
-- Для `web` регистрируется только `public.Plugin`; для `admin` — только `admin.Plugin`. Существующие CLI-команды `nginx` и `grab` сохранены.
+- Для `web` регистрируется только `public.Plugin`; для `admin` — только `admin.Plugin`. `grab` остаётся общей CLI-командой. F05-T01 удаляет старую команду `nginx`, которая напрямую перезаписывала глобальный default vhost; конфиг теперь генерируется и применяется через защищённый admin API.
 - При отсутствии `--config` web использует `/etc/jasta/config.yaml`, admin — `/etc/jasta/admin.yaml`; production и dev config-файлы разделены. Оба admin-примера слушают `127.0.0.1`.
 - Goppy server pool требует tag `main`, поэтому отдельный admin config использует tag `main`, а `admin.tag` указывает на него.
 - Runtime smoke подтвердил web 200 и admin 404 на отдельных dev listeners. Первый запуск в sandbox был запрещён политикой bind; повторный запуск с разрешением на localhost прошёл.

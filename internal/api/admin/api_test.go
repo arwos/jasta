@@ -24,6 +24,7 @@ import (
 	"go.arwos.org/jasta/internal/auth/session"
 	"go.arwos.org/jasta/internal/jobs"
 	"go.arwos.org/jasta/internal/pkg/archive"
+	"go.arwos.org/jasta/internal/pkg/nginx"
 	"go.arwos.org/jasta/internal/storage"
 )
 
@@ -60,7 +61,15 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateCode() for login: %v", err)
 	}
-	api := &Api{database: database, auth: manager, wsServer: ws.NewServer(ctx)}
+	nginxDir := t.TempDir()
+	nginxRunner := &adminNginxTestRunner{}
+	api := &Api{
+		conf: Config{Nginx: nginx.Settings{
+			AdminDomain: "admin.example.test", ConfigPath: filepath.Join(nginxDir, "jasta.conf"),
+			ChallengeRoot: filepath.Join(nginxDir, "challenges"),
+		}},
+		database: database, auth: manager, wsServer: ws.NewServer(ctx), nginxRunner: nginxRunner,
+	}
 	api.jobs, err = jobs.New(database.Tag("master"))
 	if err != nil {
 		t.Fatalf("jobs.New(): %v", err)
@@ -92,6 +101,19 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	}
 	if got := result.(map[string]string)["subject"]; got != "owner" {
 		t.Fatalf("auth.me subject=%q, want owner", got)
+	}
+	nginxHandler := api.JSONRPCApiHandlers()["nginx.apply"]
+	if _, err = nginxHandler(ctx, web.NewCtx(httptest.NewRecorder(), httptest.NewRequest("POST", "/jsonrpc", nil)), json.RawMessage(`{}`)); err == nil {
+		t.Fatal("nginx.apply accepted a request without owner bearer token")
+	}
+	nginxRequest := httptest.NewRequest("POST", "/jsonrpc", nil)
+	nginxRequest.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	nginxResult, err := nginxHandler(ctx, web.NewCtx(httptest.NewRecorder(), nginxRequest), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("nginx.apply with owner session: %v", err)
+	}
+	if nginxResult.(map[string]any)["admin_domain"] != "admin.example.test" || len(nginxRunner.calls) != 3 {
+		t.Fatalf("nginx.apply result=%#v calls=%#v", nginxResult, nginxRunner.calls)
 	}
 	api.wsServer.SetEventHandler(api.authenticateWebSocket, wsAuthEvent)
 	api.wsServer.SetEventHandler(api.subscribeWebSocket, wsSubscribeEvent)
@@ -208,6 +230,15 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 		t.Fatalf("WebSocket auth after logout response=%#v", response)
 	}
 	_ = loggedOutConn.Close()
+}
+
+type adminNginxTestRunner struct {
+	calls [][]string
+}
+
+func (r *adminNginxTestRunner) Run(_ context.Context, name string, args ...string) error {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	return nil
 }
 
 func TestDecodeParamsRejectsUnknownAndTrailingValues(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.arwos.org/jasta/internal/pkg/archive"
+	"go.arwos.org/jasta/internal/pkg/nginx"
 )
 
 const (
@@ -22,6 +23,7 @@ type (
 		MasterKeyPath string         `yaml:"master_key_path"`
 		ReleasesRoot  string         `yaml:"releases_root"`
 		ReloadSocket  string         `yaml:"reload_socket"`
+		Nginx         nginx.Settings `yaml:"nginx"`
 	}
 )
 
@@ -39,6 +41,7 @@ func (c *GroupConfig) Default() {
 	if c.Admin.ReloadSocket == "" {
 		c.Admin.ReloadSocket = defaultReloadSocket
 	}
+	c.Admin.Nginx.SetDefaults()
 }
 
 func (c *GroupConfig) Validate() error {

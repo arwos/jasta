@@ -15,7 +15,6 @@ import (
 	"go.arwos.org/jasta/internal/api"
 	"go.arwos.org/jasta/internal/api/admin"
 	"go.arwos.org/jasta/internal/pkg/grab"
-	"go.arwos.org/jasta/internal/pkg/nginx"
 )
 
 var Version = "v0.0.0-dev"
@@ -36,7 +35,6 @@ func main() {
 	} else {
 		app.Plugins(api.PublicPlugins)
 	}
-	app.Command(nginx.Command)
 	app.Command(grab.Command)
 	if role == "admin" {
 		app.Command(admin.ActivateCommand)

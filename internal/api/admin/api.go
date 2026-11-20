@@ -22,6 +22,7 @@ import (
 	"go.arwos.org/jasta/internal/deployment/release"
 	"go.arwos.org/jasta/internal/jobs"
 	"go.arwos.org/jasta/internal/pkg/config"
+	"go.arwos.org/jasta/internal/pkg/nginx"
 	"go.arwos.org/jasta/internal/snapshot"
 )
 
@@ -34,6 +35,7 @@ type Api struct {
 	wsServer    ws.Server
 	jobs        *jobs.Manager
 	wsClients   sync.Map
+	nginxRunner nginx.Runner
 }
 
 func (a *Api) Up() error {
@@ -104,6 +106,7 @@ func (a *Api) JSONRPCApiHandlers() map[string]jsonrpc.THandleFunc {
 		"releases.activate":     a.protect(a.activateRelease),
 		"releases.rollback":     a.protect(a.rollbackRelease),
 		"certificates.list":     a.protect(a.listCertificates),
+		"nginx.apply":           a.protect(a.applyNginx),
 	}
 }
 
