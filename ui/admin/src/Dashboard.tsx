@@ -445,7 +445,7 @@ function ConfigFields({ appType, value, onChange }: { appType: ApplicationType; 
         </div>
         <div className="mt-5 space-y-4">
           {redirects.map((rule, index) => (
-            <fieldset className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2" key={`${String(rule.domain)}-${index}`}>
+            <fieldset className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2" key={index}>
               <legend className="px-1 text-xs font-semibold text-slate-600">Правило {index + 1}</legend>
               <Field label="Домен" value={stringValue(rule.domain)} onChange={(next) => updateRule(index, 'domain', next)} placeholder="old.example.com" />
               <Field label="Исходный путь" value={stringValue(rule.url_from)} onChange={(next) => updateRule(index, 'url_from', next)} placeholder="/old-path" />
