@@ -156,6 +156,17 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	if !strings.Contains(string(adminCertificateConfig), "listen 443 ssl") || !strings.Contains(string(adminCertificateConfig), "/certificate.pem") {
 		t.Fatalf("nginx.apply did not load local admin certificate:\n%s", adminCertificateConfig)
 	}
+	letsEncryptHandler := api.JSONRPCApiHandlers()["certificates.issue_letsencrypt"]
+	if _, err = letsEncryptHandler(ctx, web.NewCtx(httptest.NewRecorder(), httptest.NewRequest("POST", "/jsonrpc", nil)), json.RawMessage(`{"domain":"example.com"}`)); err == nil {
+		t.Fatal("certificates.issue_letsencrypt accepted a request without owner bearer token")
+	}
+	letsEncryptRequest := httptest.NewRequest("POST", "/jsonrpc", nil)
+	letsEncryptRequest.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	if _, err = letsEncryptHandler(ctx, web.NewCtx(httptest.NewRecorder(), letsEncryptRequest), json.RawMessage(`{"domain":"example.com"}`)); err == nil {
+		t.Fatal("certificates.issue_letsencrypt started before the server operator accepted Let’s Encrypt terms")
+	} else if rpcErr, ok := err.(*rpcError); !ok || rpcErr.code != -32011 {
+		t.Fatalf("terms acceptance error=%v, want -32011", err)
+	}
 	api.wsServer.SetEventHandler(api.authenticateWebSocket, wsAuthEvent)
 	api.wsServer.SetEventHandler(api.subscribeWebSocket, wsSubscribeEvent)
 	httpListener, err := net.Listen("tcp4", "127.0.0.1:0")

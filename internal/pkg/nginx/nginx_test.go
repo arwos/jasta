@@ -37,6 +37,30 @@ func TestRenderCreatesIsolatedPublicAndAdminServerBlocks(t *testing.T) {
 	}
 }
 
+func TestRenderAddsHTTPSAndPreservesHTTP01ForCertifiedPublicDomain(t *testing.T) {
+	content, err := Render([]Site{{Domains: []string{"example.com", "www.example.com"}}}, Options{
+		AdminDomain: "admin.example.test", SiteCertificates: map[string]CertificatePaths{
+			"example.com": {Certificate: "/var/lib/jasta/certificates/example/certificate.pem", PrivateKey: "/var/lib/jasta/certificates/example/private-key.pem"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render(): %v", err)
+	}
+	text := string(content)
+	for _, expected := range []string{
+		"server_name example.com;", "listen 443 ssl;", `ssl_certificate "/var/lib/jasta/certificates/example/certificate.pem";`,
+		`ssl_certificate_key "/var/lib/jasta/certificates/example/private-key.pem";`, "return 308 https://$host$request_uri;",
+		"server_name www.example.com;", "location ^~ /.well-known/acme-challenge/", "proxy_pass http://127.0.0.1:15432;",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("generated Nginx config missing %q:\n%s", expected, text)
+		}
+	}
+	if strings.Count(text, "server_name example.com;") != 2 {
+		t.Fatalf("certified domain should have HTTP and HTTPS blocks:\n%s", text)
+	}
+}
+
 func TestRenderRejectsInvalidOrConflictingDomains(t *testing.T) {
 	options := Options{AdminDomain: "admin.example.test"}
 	for _, test := range []struct {

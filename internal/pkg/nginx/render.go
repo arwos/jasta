@@ -3,6 +3,7 @@ package nginx
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -13,6 +14,7 @@ func Render(sites []Site, options Options) ([]byte, error) {
 	settings := Settings{
 		AdminDomain: options.AdminDomain, PublicProxy: options.PublicProxy, AdminProxy: options.AdminProxy,
 		ChallengeRoot: options.ChallengeRoot, AdminCertificate: options.AdminCertificate, AdminPrivateKey: options.AdminPrivateKey,
+		SiteCertificates: options.SiteCertificates,
 	}
 	settings.SetDefaults()
 	if err := settings.Validate(); err != nil {
@@ -53,10 +55,26 @@ func Render(sites []Site, options Options) ([]byte, error) {
 			return nil, fmt.Errorf("site %d has no domains", i)
 		}
 		sort.Strings(domains)
-		if len(out.String()) > 0 {
-			out.WriteByte('\n')
+		plainDomains := make([]string, 0, len(domains))
+		for _, domain := range domains {
+			certificate, hasCertificate := options.SiteCertificates[domain]
+			if !hasCertificate {
+				plainDomains = append(plainDomains, domain)
+				continue
+			}
+			if err := validateCertificatePaths(certificate); err != nil {
+				return nil, fmt.Errorf("site %d TLS certificate for %q: %w", i, domain, err)
+			}
 		}
-		writePublicServer(&out, domains, options)
+		if len(plainDomains) > 0 {
+			writePublicServer(&out, plainDomains, options)
+		}
+		for _, domain := range domains {
+			certificate, hasCertificate := options.SiteCertificates[domain]
+			if hasCertificate {
+				writePublicTLSServer(&out, domain, certificate, options)
+			}
+		}
 	}
 	writeAdminServer(&out, adminDomain, options)
 	return []byte(out.String()), nil
@@ -70,10 +88,35 @@ func normalizeDomain(value string) (string, error) {
 }
 
 func writePublicServer(out *strings.Builder, domains []string, options Options) {
+	if out.Len() > 0 {
+		out.WriteByte('\n')
+	}
 	fmt.Fprintf(out, "server {\n\tlisten 80;\n\tserver_name %s;\n\n", strings.Join(domains, " "))
 	writeChallengeLocation(out, options.ChallengeRoot)
 	writeProxyLocation(out, options.PublicProxy, false)
 	out.WriteString("}\n")
+}
+
+func writePublicTLSServer(out *strings.Builder, domain string, certificate CertificatePaths, options Options) {
+	if out.Len() > 0 {
+		out.WriteByte('\n')
+	}
+	fmt.Fprintf(out, "server {\n\tlisten 80;\n\tserver_name %s;\n\n", domain)
+	writeChallengeLocation(out, options.ChallengeRoot)
+	out.WriteString("\tlocation / {\n\t\treturn 308 https://$host$request_uri;\n\t}\n}\n\n")
+	fmt.Fprintf(out, "server {\n\tlisten 443 ssl;\n\tserver_name %s;\n", domain)
+	fmt.Fprintf(out, "\tssl_certificate %s;\n\tssl_certificate_key %s;\n\n", nginxQuote(certificate.Certificate), nginxQuote(certificate.PrivateKey))
+	writeProxyLocation(out, options.PublicProxy, false)
+	out.WriteString("}\n")
+}
+
+func validateCertificatePaths(certificate CertificatePaths) error {
+	for name, value := range map[string]string{"certificate": certificate.Certificate, "private key": certificate.PrivateKey} {
+		if !filepath.IsAbs(value) || filepath.Clean(value) != value || strings.ContainsAny(value, "\x00\r\n") {
+			return fmt.Errorf("%s path must be a clean absolute path", name)
+		}
+	}
+	return nil
 }
 
 func writeAdminServer(out *strings.Builder, domain string, options Options) {

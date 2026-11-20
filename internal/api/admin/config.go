@@ -11,6 +11,7 @@ const (
 	defaultMasterKeyPath    = "/etc/jasta/master.key"
 	defaultReleasesRoot     = "/var/lib/jasta/releases"
 	defaultCertificatesRoot = "/var/lib/jasta/certificates"
+	defaultACMEDirectory    = "https://acme-v02.api.letsencrypt.org/directory"
 	defaultReloadSocket     = "/run/jasta/web-reload.sock"
 )
 
@@ -26,6 +27,12 @@ type (
 		ReloadSocket     string         `yaml:"reload_socket"`
 		Nginx            nginx.Settings `yaml:"nginx"`
 		CertificatesRoot string         `yaml:"certificates_root"`
+		ACME             ACMEConfig     `yaml:"acme"`
+	}
+	ACMEConfig struct {
+		DirectoryURL string `yaml:"directory_url"`
+		ContactEmail string `yaml:"contact_email"`
+		AcceptTerms  bool   `yaml:"accept_terms"`
 	}
 )
 
@@ -42,6 +49,9 @@ func (c *GroupConfig) Default() {
 	}
 	if c.Admin.CertificatesRoot == "" {
 		c.Admin.CertificatesRoot = defaultCertificatesRoot
+	}
+	if c.Admin.ACME.DirectoryURL == "" {
+		c.Admin.ACME.DirectoryURL = defaultACMEDirectory
 	}
 	if c.Admin.ReloadSocket == "" {
 		c.Admin.ReloadSocket = defaultReloadSocket

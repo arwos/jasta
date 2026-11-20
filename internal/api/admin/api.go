@@ -27,15 +27,17 @@ import (
 )
 
 type Api struct {
-	conf        Config
-	pool        web.ServerPool
-	database    orm.ORM
-	auth        *session.Manager
-	secretCodec *aesgcm.Codec
-	wsServer    ws.Server
-	jobs        *jobs.Manager
-	wsClients   sync.Map
-	nginxRunner nginx.Runner
+	conf          Config
+	pool          web.ServerPool
+	database      orm.ORM
+	auth          *session.Manager
+	secretCodec   *aesgcm.Codec
+	wsServer      ws.Server
+	jobs          *jobs.Manager
+	wsClients     sync.Map
+	nginxRunner   nginx.Runner
+	certificateMu sync.Mutex
+	nginxConfigMu sync.Mutex
 }
 
 func (a *Api) Up() error {
@@ -107,6 +109,7 @@ func (a *Api) JSONRPCApiHandlers() map[string]jsonrpc.THandleFunc {
 		"releases.rollback":              a.protect(a.rollbackRelease),
 		"certificates.list":              a.protect(a.listCertificates),
 		"certificates.issue_self_signed": a.protect(a.issueSelfSignedCertificate),
+		"certificates.issue_letsencrypt": a.protect(a.issueLetsEncryptCertificate),
 		"nginx.apply":                    a.protect(a.applyNginx),
 	}
 }

@@ -12,6 +12,10 @@ http:
 admin:
     tag: main
     certificates_root: /var/lib/jasta/certificates
+    acme:
+        directory_url: https://acme-v02.api.letsencrypt.org/directory
+        contact_email: ""
+        accept_terms: false
     nginx:
         admin_domain: ""
         config_path: /etc/nginx/conf.d/jasta.conf

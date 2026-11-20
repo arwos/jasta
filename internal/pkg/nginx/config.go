@@ -22,31 +22,39 @@ type Site struct {
 	Domains []string
 }
 
+type CertificatePaths struct {
+	Certificate string
+	PrivateKey  string
+}
+
 type Options struct {
-	AdminDomain      string `yaml:"admin_domain"`
-	PublicProxy      string `yaml:"public_proxy"`
-	AdminProxy       string `yaml:"admin_proxy"`
-	ChallengeRoot    string `yaml:"challenge_root"`
-	AdminCertificate string `yaml:"admin_certificate"`
-	AdminPrivateKey  string `yaml:"admin_private_key"`
+	AdminDomain      string                      `yaml:"admin_domain"`
+	PublicProxy      string                      `yaml:"public_proxy"`
+	AdminProxy       string                      `yaml:"admin_proxy"`
+	ChallengeRoot    string                      `yaml:"challenge_root"`
+	AdminCertificate string                      `yaml:"admin_certificate"`
+	AdminPrivateKey  string                      `yaml:"admin_private_key"`
+	SiteCertificates map[string]CertificatePaths `yaml:"-"`
 }
 
 type Settings struct {
-	AdminDomain      string `yaml:"admin_domain"`
-	PublicProxy      string `yaml:"public_proxy"`
-	AdminProxy       string `yaml:"admin_proxy"`
-	ChallengeRoot    string `yaml:"challenge_root"`
-	AdminCertificate string `yaml:"admin_certificate"`
-	AdminPrivateKey  string `yaml:"admin_private_key"`
-	ConfigPath       string `yaml:"config_path"`
-	NginxBinary      string `yaml:"nginx_binary"`
-	Systemctl        string `yaml:"systemctl_binary"`
+	AdminDomain      string                      `yaml:"admin_domain"`
+	PublicProxy      string                      `yaml:"public_proxy"`
+	AdminProxy       string                      `yaml:"admin_proxy"`
+	ChallengeRoot    string                      `yaml:"challenge_root"`
+	AdminCertificate string                      `yaml:"admin_certificate"`
+	AdminPrivateKey  string                      `yaml:"admin_private_key"`
+	ConfigPath       string                      `yaml:"config_path"`
+	NginxBinary      string                      `yaml:"nginx_binary"`
+	Systemctl        string                      `yaml:"systemctl_binary"`
+	SiteCertificates map[string]CertificatePaths `yaml:"-"`
 }
 
 func (s Settings) RenderOptions() Options {
 	return Options{
 		AdminDomain: s.AdminDomain, PublicProxy: s.PublicProxy, AdminProxy: s.AdminProxy,
 		ChallengeRoot: s.ChallengeRoot, AdminCertificate: s.AdminCertificate, AdminPrivateKey: s.AdminPrivateKey,
+		SiteCertificates: s.SiteCertificates,
 	}
 }
 
