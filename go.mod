@@ -1,9 +1,9 @@
 module go.arwos.org/jasta
 
-go 1.26.3
+go 1.26.8
 
 require (
-	go.osspkg.com/do v0.3.0
+	go.osspkg.com/do v0.3.1
 	go.osspkg.com/goppy/v3 v3.2.3
 	go.osspkg.com/ioutils v0.7.4
 	go.osspkg.com/logx v0.6.1
