@@ -8,10 +8,10 @@
   3. Раздавать UI и SPA routes только на настроенном admin host; зарезервированные API/WebSocket/upload paths не получают fallback index.
   **Приёмка:** frontend собирается, lint проходит, admin API отдаёт собранное приложение, версии toolchain и runtime requirement задокументированы.
 
-- [ ] F06-T02 — Реализовать вход владельца и настройку TOTP
-  1. Добавить пароль+TOTP login, enrollment, подтверждение, показ recovery codes и logout.
-  2. Обрабатывать истечение access JWT и обновление refresh-сессии.
-  **Приёмка:** защищённые маршруты закрыты для анонимного пользователя; UI не сохраняет или повторно не показывает секреты enrollment/recovery.
+- [x] F06-T02 — Реализовать вход владельца и настройку TOTP
+  1. Добавить экран входа владельца по паролю и TOTP, logout и экран подтверждённой сессии. Согласованный enrollment остаётся в `jasta owner-bootstrap`; команда показывает recovery codes ровно один раз, UI не получает их.
+  2. Держать access/refresh tokens только в памяти страницы. Обновлять короткий access JWT заранее и повторять защищённый RPC при `unauthorized`; при refresh failure очищать сессию. Reload страницы требует повторного входа.
+  **Приёмка:** UI закрывает защищённые разделы до login; пароль/TOTP очищаются после попытки; токены и recovery codes не попадают в DOM, localStorage, sessionStorage или логи; logout отзывает refresh-сессию backend.
 
 - [ ] F06-T03 — Управлять сайтами, доменами и конфигурацией
   1. Показывать список сайтов и формы SPA/MPA/Markdown/Redirect конфигураций.

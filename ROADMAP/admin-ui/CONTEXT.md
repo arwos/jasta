@@ -13,6 +13,7 @@
 - F06-T01 добавляет frontend в `ui/admin/`: React 19.2.7, React DOM 19.2.7, TypeScript 7.0.2, Vite 8.3.8, Tailwind CSS/`@tailwindcss/vite` 4.3.5, Oxlint 1.90.0 и pnpm 12.18.0. Node requirement: `>=22.12.0 <27`; versions pinned in `package.json` and `pnpm-lock.yaml`.
 - Vite outputs `ui/admin/dist`; `ui/admin/adminui.go` embeds it into `jasta admin`. The admin NotFound handler serves the app and client routes only when Host matches `admin.nginx.admin_domain`, and leaves `/jsonrpc`, `/uploads`, `/ws` and `/.well-known` reserved. Vite uses content-hashed CSS/JS filenames; `index.html` is no-cache.
 - The initial UI is a Russian responsive shell/empty state. Auth and data flows are implemented in following F06 tasks.
+- F06-T02 keeps owner credentials and JWTs in page memory only. A short access token refreshes 30 seconds before expiry and on a protected-RPC unauthorized response; logout revokes the refresh session. A page reload requires a new login. Owner TOTP enrollment/recovery codes stay in the approved one-time local `jasta owner-bootstrap` command and are never returned by browser API.
 - [Vite guide](https://vite.dev/guide/) requires Node.js 20.19+ or 22.12+; project pins Node 22.12+ minimum.
 - [Tailwind Vite integration](https://tailwindcss.com/docs/installation/using-vite) uses `@tailwindcss/vite` and CSS `@import "tailwindcss"`.
 - [Oxlint quickstart](https://oxc.rs/docs/guide/usage/linter/quickstart.html) documents installation and pnpm scripts. `pnpm lint` scopes linting to `src`, excluding generated bundle output.
