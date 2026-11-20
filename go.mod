@@ -1,43 +1,40 @@
 module go.arwos.org/jasta
 
-go 1.25.3
+go 1.26.11
 
 require (
-	go.osspkg.com/console v0.3.3
-	go.osspkg.com/do v0.2.1
-	go.osspkg.com/events v0.3.0
-	go.osspkg.com/goppy/v2 v2.4.6
-	go.osspkg.com/ioutils v0.7.3
-	go.osspkg.com/logx v0.6.0
-	go.osspkg.com/static v1.4.0
+	github.com/boombuler/barcode v1.1.0
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
+	github.com/pquerna/otp v1.5.0
+	go.osspkg.com/do v0.3.1
+	go.osspkg.com/encrypt v0.5.3
+	go.osspkg.com/goppy/v3 v3.2.3
+	go.osspkg.com/ioutils v0.7.4
+	go.osspkg.com/logx v0.6.1
+	go.osspkg.com/markdown v0.1.0
+	golang.org/x/crypto v0.59.0
+	golang.org/x/term v0.48.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
-	github.com/mailru/easyjson v0.9.1 // indirect
-	github.com/onsi/ginkgo/v2 v2.22.2 // indirect
-	github.com/quic-go/quic-go v0.50.1 // indirect
+	github.com/mailru/easyjson v0.9.2 // indirect
+	github.com/mattn/go-sqlite3 v1.14.47 // indirect
+	github.com/quic-go/quic-go v0.59.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	go.osspkg.com/algorithms v1.6.0 // indirect
-	go.osspkg.com/config v0.2.0 // indirect
+	go.osspkg.com/algorithms v1.7.1 // indirect
+	go.osspkg.com/bb v1.0.0 // indirect
+	go.osspkg.com/cast v0.0.0-20260330033934-90d4d7b6ee08 // indirect
 	go.osspkg.com/errors v0.4.0 // indirect
-	go.osspkg.com/grape v1.3.0 // indirect
+	go.osspkg.com/events v0.3.0 // indirect
 	go.osspkg.com/network v0.6.0 // indirect
-	go.osspkg.com/syncing v0.4.3 // indirect
-	go.osspkg.com/xc v0.4.0 // indirect
+	go.osspkg.com/random v0.5.1 // indirect
+	go.osspkg.com/routine v0.4.1 // indirect
+	go.osspkg.com/syncing v0.5.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	go.uber.org/mock v0.5.0 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
-	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/net v0.46.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/tools v0.38.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/net v0.63.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 )

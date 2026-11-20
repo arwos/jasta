@@ -1,0 +1,2 @@
+# The admin service may ask systemd to reload only the Nginx unit.
+jasta-admin ALL=(root) NOPASSWD: /usr/bin/systemctl reload nginx
