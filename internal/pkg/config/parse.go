@@ -68,6 +68,25 @@ func SearchApplicationConfigs(dir string) []any {
 			}
 		}
 
+		if markdown, ok := ac.(*MarkdownApplication); ok {
+			if markdown.Source != "" && !filepath.IsAbs(markdown.Source) {
+				source, absErr := filepath.Abs(filepath.Join(filepath.Dir(file), markdown.Source))
+				if absErr != nil {
+					logx.Error("failed to resolve Markdown source path", "file", file, "source", markdown.Source, "err", absErr)
+					continue
+				}
+				markdown.Source = source
+			}
+			if !filepath.IsAbs(markdown.Root) {
+				root, absErr := filepath.Abs(filepath.Join(filepath.Dir(file), markdown.Root))
+				if absErr != nil {
+					logx.Error("failed to resolve Markdown output path", "file", file, "root", markdown.Root, "err", absErr)
+					continue
+				}
+				markdown.Root = root
+			}
+		}
+
 		configs = append(configs, ac)
 	}
 

@@ -7,6 +7,8 @@ require (
 	go.osspkg.com/goppy/v3 v3.2.3
 	go.osspkg.com/ioutils v0.7.4
 	go.osspkg.com/logx v0.6.1
+	go.osspkg.com/markdown v0.1.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -25,8 +27,7 @@ require (
 	go.osspkg.com/routine v0.4.1 // indirect
 	go.osspkg.com/syncing v0.5.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 )

@@ -121,8 +121,6 @@ func (a *MarkdownApplication) SetRoot(root string) {
 
 func (a MarkdownApplication) Validate() error {
 	switch {
-	case len(a.Source) == 0:
-		return errors.New("source is required")
 	case len(a.Domains) == 0:
 		return errors.New("domains is required")
 	case len(a.Root) == 0:
