@@ -477,13 +477,28 @@ func validateStaticFiles(app any) error {
 	case *config.MarkdownApplication:
 		root, pages = value.Root, value.Pages
 	}
+	contentRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("open content root: %w", err)
+	}
+	defer func() { _ = contentRoot.Close() }()
+
 	for _, name := range []string{pages.Index, pages.NotFound} {
-		if filepath.IsAbs(name) || filepath.Clean(name) == ".." || strings.HasPrefix(filepath.Clean(name), ".."+string(filepath.Separator)) {
+		cleanName := filepath.Clean(name)
+		if filepath.IsAbs(name) || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("page path %q must stay inside the content root", name)
 		}
-		info, err := os.Stat(filepath.Join(root, filepath.Clean(name)))
+		file, err := contentRoot.Open(cleanName)
 		if err != nil {
 			return fmt.Errorf("required page %q: %w", name, err)
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			return fmt.Errorf("required page %q: %w", name, statErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close required page %q: %w", name, closeErr)
 		}
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("required page %q is not a regular file", name)
