@@ -1,6 +1,6 @@
 # QA F01 — Runtime и управляющее хранилище
 
-F01-T01 и F01-T02 выполнены. Остальные проверки F01 запланированы; тестовые наборы не запускались.
+F01-T01–F01-T04 выполнены. Полный тестовый набор и lint не запускались.
 
 ## Сценарии
 
@@ -22,4 +22,7 @@ F01-T01 и F01-T02 выполнены. Остальные проверки F01 �
 - `gofmt -w cmd/jasta/main.go internal/api/admin/reload.go internal/api/public/api.go internal/api/public/config.go internal/api/public/p.go internal/pkg/config/config.go internal/snapshot/snapshot.go internal/snapshot/socket.go` — успешно.
 - `go build -o /tmp/jasta-f01-t03 ./cmd/jasta` — успешно; Go вывел предупреждение о read-only GVM stat cache.
 - Runtime reload smoke: `jasta web` запущен на `127.0.0.1:8080`; `jasta admin reload` отправил снимок revision 1 через `/tmp/jasta-web-reload.sock`, команда подтвердила активацию, запрос с Host `localhost` вернул HTTP 200. Снимок revision 2 с неизвестным типом был отклонён с ошибкой, повторный запрос с Host `localhost` вернул HTTP 200. Проверка требовала разрешения на локальный listener и Unix-сокет; процесс остановлен.
-- Полный тестовый набор и lint не запускались.
+- `gofmt -w cmd/jasta/main.go internal/api/admin/import_configs.go internal/siteimport/import.go internal/storage/plugin.go` и `go build -o /tmp/jasta-f01-t04 ./cmd/jasta` — успешно; Go вывел предупреждение о read-only GVM stat cache.
+- CLI smoke в изолированной SQLite `/tmp/jasta-f01-t04-t2_vujc0/admin.sqlite`: `/tmp/jasta-f01-t04 admin import-configs --config=/tmp/jasta-f01-t04-t2_vujc0/admin.yaml --dir=/tmp/jasta-f01-t04-t2_vujc0/configs --database=/tmp/jasta-f01-t04-t2_vujc0/admin.sqlite` импортировал 3 файла (современные SPA/MPA и legacy SPA), сообщил о 2 пропусках (неполный SPA и неподдерживаемый MDA). Повторный вызов сообщил `imported=0 already-present=3 skipped=2`.
+- SQLite inspection подтвердил ровно 3 строки в `sites`, 3 домена и 3 config snapshots; legacy YAML преобразован в `app_type=spa`. Исходные fixture YAML/контент не изменялись; команды читали их, а Git diff не включает исходные каталоги.
+- Первый smoke-вызов через `DIResolver.Resolve` показал завершённый импорт, но не завершил CLI до timeout из-за ожидания Goppy ticker lifecycle. Команда переведена на отдельное прямое подключение Goppy ORM, явное применение общей миграции и закрытие ORM; последующие два вызова завершились с кодом 0.
