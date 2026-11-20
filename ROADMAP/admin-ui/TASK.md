@@ -2,10 +2,11 @@
 
 **Зависимости:** F04-T03, F04-T04, F04-T05; экраны используют F03 и F05.
 
-- [ ] F06-T01 — Создать frontend build в `ui/admin/`
+- [x] F06-T01 — Создать frontend build в `ui/admin/`
   1. Настроить React, TypeScript, Vite, Tailwind CSS с `@tailwindcss/vite`, Oxlint и pnpm.
-  2. Добавить воспроизводимый lockfile и команды lint/build; включать build output в `jasta admin`.
-  **Приёмка:** frontend собирается, lint проходит, admin бинарник раздаёт собранное приложение; версии toolchain задокументированы.
+  2. Добавить воспроизводимый lockfile и команды lint/build; включать build output в `jasta admin` через Go embed.
+  3. Раздавать UI и SPA routes только на настроенном admin host; зарезервированные API/WebSocket/upload paths не получают fallback index.
+  **Приёмка:** frontend собирается, lint проходит, admin API отдаёт собранное приложение, версии toolchain и runtime requirement задокументированы.
 
 - [ ] F06-T02 — Реализовать вход владельца и настройку TOTP
   1. Добавить пароль+TOTP login, enrollment, подтверждение, показ recovery codes и logout.
