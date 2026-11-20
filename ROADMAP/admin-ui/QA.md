@@ -1,6 +1,6 @@
 # QA F06 — React-админка
 
-F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified.
+F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified. F06-T05 has mocked browser coverage for source CRUD, secret omission/edit reset, self-signed and Let’s Encrypt actions, progress, and safe ACME failure display; real Nginx/ACME issuance is not exercised.
 
 ## Сценарии
 
@@ -15,6 +15,8 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - [x] Playwright with mocked JSON-RPC covers login, server validation error display, config draft save, create form selection for all four app types, redirect creation, TLS table, and 390px/1440px widths without overflow or console errors.
 - [x] API test covers owner-protected registry release creation using an injected fetcher, configured archive limits, release history metadata, Redirect config-only release, and a stable source-fetch error without leaking details.
 - [x] Playwright with mocked JSON-RPC/multipart covers archive upload, URL-source selection and request payload, success notice, refreshed release history, active release display, explicit rollback confirmation, and 390px/1440px document widths without horizontal overflow. In this run `/ws` was unavailable: the UI continued after its handshake timeout and displayed the progress-unavailable notice; the mocked run does not verify live progress/reconnect.
+- [x] Playwright with mocked JSON-RPC covers source create/update/delete, source URL and Bearer secret absent from rendered UI, blank URL/secret fields when editing, and confirmation before delete.
+- [x] Playwright with mocked WebSocket covers local self-signed issuance, public Let’s Encrypt job success and failure, certificate refresh, safe `acme_failed` guidance, and 390px layout without horizontal overflow or secret disclosure.
 - Live browser flow against a running `jasta admin` with SQLite, owner bootstrap, and real authenticated JSON-RPC remains a deployment integration check.
 - Responsive layout на узком и широком viewport; keyboard navigation, видимый focus, labels, ошибки форм.
 - Login: пароль/TOTP, некорректный код, expired JWT, refresh success/failure, logout.
@@ -57,3 +59,8 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - `pnpm lint` — PASS, 0 warnings (2026-11-20; F06-T04).
 - `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T04).
 - Playwright with mocked JSON-RPC and multipart — PASS for archive upload, URL-source request payload, history refresh, explicit rollback confirmation, and 390px/1440px widths; `/ws` was unavailable and the fallback state was displayed. Browser reported the expected dev-server `/ws` connection warning and an unrelated missing `/favicon.ico` request (2026-11-20; F06-T04).
+- `pnpm lint` — PASS, 0 warnings (2026-11-20; F06-T05).
+- `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T05).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./ui/admin` — PASS; embedded frontend package compiles with the new bundle (2026-11-20; F06-T05).
+- `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f06-t05 ./cmd/jasta` — PASS; GVM printed a non-fatal warning because its stat cache is read-only (2026-11-20; F06-T05).
+- Playwright with mocked JSON-RPC/WebSocket — PASS: source create/update/delete, secret not rendered and edit fields reset; self-signed issuance; Let’s Encrypt job completion and mapped `acme_failed` error; 390px document width equals viewport. No live Nginx or ACME CA was contacted (2026-11-20; F06-T05).

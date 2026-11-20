@@ -51,6 +51,17 @@ export type RegistrySource = {
   updated_at: string
 }
 
+export type RegistryAuthType = RegistrySource['auth_type']
+
+export type RegistrySourceInput = {
+  name: string
+  url: string
+  auth_type: RegistryAuthType
+  username?: string
+  password?: string
+  bearer_token?: string
+}
+
 export type ReleaseRecord = {
   id: string
   config_snapshot_id: string
@@ -205,6 +216,26 @@ class AdminApi {
 
   listSources(): Promise<RegistrySource[]> {
     return this.call('sources.list', {})
+  }
+
+  createSource(source: RegistrySourceInput): Promise<{ id: string; name: string; auth_type: RegistryAuthType }> {
+    return this.call('sources.create', source)
+  }
+
+  updateSource(id: string, source: RegistrySourceInput): Promise<{ id: string; name: string; auth_type: RegistryAuthType }> {
+    return this.call('sources.update', { ...source, id })
+  }
+
+  async deleteSource(id: string): Promise<void> {
+    await this.call<{ ok: boolean }>('sources.delete', { id })
+  }
+
+  issueSelfSignedCertificate(domain: string): Promise<CertificateSummary> {
+    return this.call('certificates.issue_self_signed', { domain })
+  }
+
+  issueLetsEncryptCertificate(domain: string): Promise<{ job_id: string; domain: string }> {
+    return this.call('certificates.issue_letsencrypt', { domain })
   }
 
   releaseHistory(siteID: string): Promise<ReleaseHistory> {

@@ -10,8 +10,10 @@ import {
   type SiteSummary,
 } from './api'
 import DeploymentsSection from './DeploymentsSection'
+import RegistrySourcesSection from './RegistrySourcesSection'
+import TLSSection from './TLSSection'
 
-type Section = 'overview' | 'sites' | 'deployments' | 'tls'
+type Section = 'overview' | 'sites' | 'sources' | 'deployments' | 'tls'
 type Draft = Record<string, unknown>
 
 const applicationNames: Record<ApplicationType, string> = {
@@ -24,6 +26,7 @@ const applicationNames: Record<ApplicationType, string> = {
 const sectionNames: Record<Section, string> = {
   overview: 'Обзор',
   sites: 'Сайты и конфигурация',
+  sources: 'Источники',
   deployments: 'Публикации',
   tls: 'Домены и TLS',
 }
@@ -133,6 +136,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     setSites(nextSites)
   }
 
+  async function refreshSources() {
+    setSources(await adminApi.listSources())
+  }
+
+  async function refreshCertificates() {
+    setCertificates(await adminApi.listCertificates())
+  }
+
   async function activateRelease(siteID: string, releaseID: string) {
     await adminApi.activateRelease(siteID, releaseID)
     await refreshReleaseData(siteID)
@@ -224,7 +235,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             onRollback={rollbackRelease}
           />
         ) : null}
-        {!loading && section === 'tls' ? <TLSSection domains={allDomains} certificates={certificates} /> : null}
+        {!loading && section === 'sources' ? <RegistrySourcesSection sources={sources} onRefresh={refreshSources} /> : null}
+        {!loading && section === 'tls' ? <TLSSection domains={allDomains} certificates={certificates} onRefresh={refreshCertificates} /> : null}
       </main>
     </div>
   )
@@ -477,53 +489,6 @@ function Field({ label, value, onChange, placeholder, inputMode }: { label: stri
   )
 }
 
-function TLSSection({ domains, certificates }: { domains: { domain: string; site: SiteSummary }[]; certificates: CertificateSummary[] }) {
-  const byDomain = new Map(certificates.map((certificate) => [certificate.domain, certificate]))
-  return (
-    <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-5 sm:px-7">
-        <h2 className="text-lg font-semibold tracking-tight">Домены и сертификаты</h2>
-        <p className="mt-1 text-sm text-slate-500">Состояние доменов, зарегистрированных в конфигурациях сайтов.</p>
-      </div>
-      {domains.length === 0 ? <p className="p-6 text-sm text-slate-600">Домены пока не настроены.</p> : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr><th className="px-5 py-3 font-semibold sm:px-7">Домен</th><th className="px-5 py-3 font-semibold">Сайт</th><th className="px-5 py-3 font-semibold">Сертификат</th><th className="px-5 py-3 font-semibold">Срок действия</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {domains.map(({ domain, site }) => {
-                const certificate = byDomain.get(domain)
-                return (
-                  <tr key={`${site.id}-${domain}`}>
-                    <td className="px-5 py-4 font-medium text-slate-900 sm:px-7">{domain}</td>
-                    <td className="px-5 py-4 text-slate-600">{site.name}</td>
-                    <td className="px-5 py-4"><StatusPill status={certificate?.status || 'missing'} label={certificate ? issuerName(certificate.issuer) : 'Не выпущен'} /></td>
-                    <td className="px-5 py-4 text-slate-600">{certificate?.not_after ? new Date(certificate.not_after).toLocaleDateString('ru-RU') : '—'}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {certificates.some((certificate) => !domains.some((entry) => entry.domain === certificate.domain)) ? (
-        <div className="border-t border-slate-200 px-5 py-5 sm:px-7">
-          <h3 className="text-sm font-semibold text-slate-800">Сертификаты других доменов</h3>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            {certificates.filter((certificate) => !domains.some((entry) => entry.domain === certificate.domain)).map((certificate) => (
-              <li className="flex flex-wrap items-center justify-between gap-3" key={certificate.id}>
-                <span>{certificate.domain} · {issuerName(certificate.issuer)}</span>
-                <StatusPill status={certificate.status} label={statusName(certificate.status)} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
-  )
-}
-
 function Metric({ label, value, detail }: { label: string; value: string | number; detail: string }) {
   return <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm font-medium text-slate-600">{label}</p><p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></article>
 }
@@ -534,19 +499,6 @@ function SiteCard({ site }: { site: SiteSummary }) {
 
 function EmptySites() {
   return <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm leading-6 text-slate-600">Сайты пока не созданы. Перейдите в раздел «Сайты и конфигурация» и добавьте первый сайт.</div>
-}
-
-function StatusPill({ status, label }: { status: string; label: string }) {
-  const colors = status === 'valid' ? 'bg-emerald-50 text-emerald-800' : status === 'expiring' || status === 'pending' ? 'bg-amber-50 text-amber-800' : status === 'missing' ? 'bg-slate-100 text-slate-600' : 'bg-rose-50 text-rose-800'
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${colors}`}>{label}</span>
-}
-
-function issuerName(issuer: string): string {
-  return issuer === 'letsencrypt' ? 'Let’s Encrypt' : issuer === 'self_signed' ? 'Самоподписанный' : issuer
-}
-
-function statusName(status: string): string {
-  return status === 'valid' ? 'Действует' : status === 'expiring' ? 'Скоро истечёт' : status === 'pending' ? 'Выпускается' : status === 'failed' ? 'Ошибка' : status
 }
 
 function stringValue(value: unknown): string {
