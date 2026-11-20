@@ -59,7 +59,7 @@ prerender_local:
 	go run cmd/jasta/main.go prerender
 
 deb:
-	deb-builder build
+	deb-builder build --base-dir=build --tmp-dir=/tmp/isobox
 
 local: build
 	cp ./build/jasta_amd64 $(GOPATH)/bin/jasta
