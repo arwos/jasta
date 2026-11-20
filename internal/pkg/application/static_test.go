@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"go.osspkg.com/goppy/v3/plugins/web"
 
@@ -24,7 +23,7 @@ func TestSPAHandler(t *testing.T) {
 	service, err := Initialize(&config.SinglePageApplication{
 		Domains: []string{"spa.test"},
 		Root:    root,
-		Assets:  config.Assets{Path: "/assets", CacheTTL: time.Hour},
+		Assets:  config.Assets{Path: "/assets", CacheTTL: 3600},
 		Pages:   config.Pages{Index: "index.html", NotFound: "404.html"},
 	})
 	if err != nil {

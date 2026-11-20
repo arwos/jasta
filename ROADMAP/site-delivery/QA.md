@@ -32,3 +32,4 @@ F02-T01–F02-T04 выполнены. Остальные feature-группы о
 - `golangci-lint run ./internal/pkg/application ./internal/pkg/config` — успешно, 0 issues.
 - `make lint` во время работы нашёл замечания в новом Markdown-сборщике и четыре ошибки в несвязанных исходных файлах. Замечания сборщика исправлены; повторный `golangci-lint run ./...` сообщает только baseline-ошибки `internal/api/admin/reload.go:23` (deferred `file.Close`) и `internal/snapshot/socket.go:36,71,101` (permissions/deferred `conn.Close`).
 - Полный Go test suite не запускался; полный lint запускался и остаётся с четырьмя baseline-ошибками, перечисленными выше.
+- Изменение единиц `assets.cache_ttl`: `pnpm lint` — PASS; `pnpm build` — PASS и обновил встроенный bundle; `GOCACHE=/tmp/jasta-go-cache go build -mod=readonly -o /tmp/jasta-cache-ttl-seconds ./cmd/jasta` — PASS (GVM сообщил о недоступном stat cache в read-only каталоге); тесты не запускались.

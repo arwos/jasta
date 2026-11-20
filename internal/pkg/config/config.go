@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"go.arwos.org/jasta/internal/pkg/host"
 )
@@ -242,8 +241,8 @@ func validateRedirectGraph(graph map[string][]string) error {
 }
 
 type Assets struct {
-	Path     string        `yaml:"path" json:"path"`
-	CacheTTL time.Duration `yaml:"cache_ttl" json:"cache_ttl"`
+	Path     string `yaml:"path" json:"path"`
+	CacheTTL int64  `yaml:"cache_ttl" json:"cache_ttl"`
 }
 
 type Pages struct {

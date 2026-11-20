@@ -87,7 +87,7 @@ func serveFile(ctx web.Ctx, root *os.Root, name string, status int, cache *confi
 
 	ctx.Header().Set("Content-Type", mime.DetectByFilename(name))
 	if cache != nil {
-		ctx.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", int64(cache.CacheTTL.Seconds())))
+		ctx.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", cache.CacheTTL))
 	}
 	ctx.Response().WriteHeader(status)
 	if _, err = io.Copy(ctx.Response(), file); err != nil {

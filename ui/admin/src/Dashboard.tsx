@@ -481,7 +481,7 @@ function ConfigFields({ appType, value, onChange }: { appType: ApplicationType; 
       <Field label="Корневой каталог сайта" value={stringValue(value.root)} onChange={(next) => onChange({ ...value, root: next })} placeholder="." />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Путь к статическим файлам" value={stringValue(assets.path)} onChange={(next) => onChange({ ...value, assets: { ...assets, path: next } })} placeholder="assets" />
-        <Field label="TTL кэша (наносекунды)" inputMode="numeric" value={stringValue(assets.cache_ttl ?? 0)} onChange={(next) => onChange({ ...value, assets: { ...assets, cache_ttl: Number(next) || 0 } })} placeholder="0" />
+        <Field label="TTL кэша (секунды)" inputMode="numeric" value={stringValue(assets.cache_ttl ?? 0)} onChange={(next) => onChange({ ...value, assets: { ...assets, cache_ttl: Number(next) || 0 } })} placeholder="0" />
         <Field label="Файл главной страницы" value={stringValue(pages.index)} onChange={(next) => onChange({ ...value, pages: { ...pages, index: next } })} placeholder="index.html" />
         <Field label="Файл страницы 404" value={stringValue(pages.not_found)} onChange={(next) => onChange({ ...value, pages: { ...pages, not_found: next } })} placeholder="404.html" />
       </div>
