@@ -10,10 +10,12 @@
 
 ## Текущее состояние
 
-- `.deb.yaml` уже перечисляет amd64 и arm64, зависит от systemd, ca-certificates и nginx, устанавливает один бинарник и `init/jasta.service`.
-- Текущий service работает от `www-data`; целевые service users и directory boundaries пока не описаны.
-- `Makefile` объявляет `make lint`, `make build` (amd64), `make tests`, `make pre-commit` и `make ci`; команды во время планирования не запускались.
-- `make install` вызывает `go install .../goppy@latest` и `goppy setup-lib`, поэтому использует подвижный tool version и может обновлять локальную tooling state.
+- F07-T01 заменяет общий unit на `jasta-web.service` и `jasta-admin.service`; sysusers/tmpfiles задают раздельных пользователей, группы, каталоги и фиксированные права.
+- `jasta-web` не имеет права записи в state; `ProtectSystem=strict`, Unix-права и `InaccessiblePaths` закрывают SQLite, master key, сертификаты и ACME account key. Доступ к content releases идёт через отдельную read-only группу `jasta-content`.
+- Admin работает от `jasta-admin`, владеет SQLite, release tree и приватными файлами. Content tree меняет группу на `jasta-content` при публикации; сертификатные ключи остаются в группе `jasta-admin`.
+- Web создаёт `/run/jasta/web-reload.sock` внутри runtime directory `0770`; socket mode `0660` и группа `jasta-content` позволяют admin отправлять активный snapshot. При рестарте web связанный admin перезапускается и повторно загружает из SQLite только активные пары; тот же snapshot revision принимается идемпотентно.
+- Nginx включает root-owned shim из `/etc/nginx/conf.d/jasta.conf`, который подключает выделенный `/etc/jasta/nginx/jasta.conf`. Admin может менять только эту отдельную директорию. Sudoers разрешает `jasta-admin` только `/usr/bin/systemctl reload nginx`; `nginx -t` запускается без привилегий. В admin unit `NoNewPrivileges` выключен только для выполнения этой точечной sudoers-команды; `jasta-admin` не запускает сервис от root.
+- `make install` вызывает `go install .../goppy@latest` и `goppy setup-lib`, поэтому использует подвижный tool version и может обновлять локальную tooling state; эта команда не входит в проверку F07-T01.
 
 ## Ограничения и источники
 

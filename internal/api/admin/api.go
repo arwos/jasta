@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +37,7 @@ type Api struct {
 	database       orm.ORM
 	auth           *session.Manager
 	archiveFetcher ArchiveFetcher
+	contentGroupID *uint32
 	secretCodec    *aesgcm.Codec
 	wsServer       ws.Server
 	jobs           *jobs.Manager
@@ -74,11 +77,30 @@ func (a *Api) Up() error {
 		return fmt.Errorf("initialize progress jobs: %w", err)
 	}
 	a.jobs = manager
+	if a.conf.ContentGroup != "" {
+		group, lookupErr := user.LookupGroup(a.conf.ContentGroup)
+		if lookupErr != nil {
+			return fmt.Errorf("look up release content group: %w", lookupErr)
+		}
+		groupID, parseErr := strconv.ParseUint(group.Gid, 10, 32)
+		if parseErr != nil {
+			return fmt.Errorf("parse release content group ID: %w", parseErr)
+		}
+		value := uint32(groupID)
+		a.contentGroupID = &value
+	}
 	a.wsServer.SetEventHandler(a.authenticateWebSocket, wsAuthEvent)
 	a.wsServer.SetEventHandler(a.subscribeWebSocket, wsSubscribeEvent)
 	route.Get("/ws", a.serveWebSocket)
 	route.Post("/uploads", a.uploadArchive)
 	route.NotFoundHandler(a.serveFrontend)
+	if active, found, snapshotErr := activation.CurrentSnapshot(context.Background(), a.database.Tag("master")); snapshotErr != nil {
+		return fmt.Errorf("load active web snapshot: %w", snapshotErr)
+	} else if found {
+		if err = a.sendActiveSnapshot(active); err != nil {
+			return fmt.Errorf("restore active web snapshot: %w", err)
+		}
+	}
 	return nil
 }
 

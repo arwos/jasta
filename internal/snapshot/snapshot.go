@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
@@ -24,6 +25,7 @@ type Site struct {
 
 type Runtime struct {
 	Revision uint64
+	Digest   [32]byte
 	Apps     []application.Service
 	Handlers map[string]application.Service
 }
@@ -159,6 +161,13 @@ func Prepare(s Snapshot) (runtime *Runtime, err error) {
 		runtime.Close()
 		return nil, err
 	}
+
+	encoded, err := json.Marshal(s)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("fingerprint snapshot: %w", err)
+	}
+	runtime.Digest = sha256.Sum256(encoded)
 
 	return runtime, nil
 }

@@ -2,10 +2,12 @@
 
 **Зависимости:** F01–F06 по функциям и правам, которые входят в пакет.
 
-- [ ] F07-T01 — Разделить systemd units и ограничить права сервисов
-  1. Создать отдельные users/groups, директории состояния и systemd units для web/admin.
-  2. Ограничить доступ к SQLite, release content, master key, TLS private keys, Nginx includes и reload action.
-  **Приёмка:** web не открывает SQLite или admin secrets; admin не работает от root и может менять только назначенные ресурсы.
+- [x] F07-T01 — Разделить systemd units и ограничить права сервисов
+  1. Создать `jasta-web`/`jasta-admin`, content/challenge groups, state directories и отдельные hardened units.
+  2. Закрыть SQLite, master key, сертификаты и ACME account key от web; дать web read-only доступ к release content и reload socket.
+  3. Оставить admin непривилегированным; ограничить reload через точное sudoers правило, Nginx include — выделенным каталогом.
+  4. При запуске admin восстанавливать только активный snapshot; одинаковая ревизия повторно принимается как idempotent retry.
+  **Приёмка:** Unix-группы и systemd sandbox разделяют web/admin доступ; admin не запускает основной сервис от root и может менять только назначенные ресурсы.
 
 - [ ] F07-T02 — Выпускать Debian/Ubuntu `.deb` для amd64 и arm64
   1. Обновить `.deb.yaml` на два бинарника/сервиса, frontend assets и необходимые каталоги/права.

@@ -126,7 +126,7 @@ func (a *Api) createRelease(ctx context.Context, wc web.Ctx, raw json.RawMessage
 	releaseResult, err := release.Create(ctx, a.database.Tag("master"), release.Input{
 		SiteID: params.SiteID, AppType: appType, Config: configData, SourceKind: sourceKind,
 		ArchiveName: archiveName, SourceID: params.SourceID, StagingDir: stagingDir,
-		ReleasesRoot: a.conf.ReleasesRoot, CreatedAt: time.Now().UTC(),
+		ReleasesRoot: a.conf.ReleasesRoot, ContentGroupID: a.contentGroupID, CreatedAt: time.Now().UTC(),
 	})
 	if err != nil {
 		return fail("build", 65, "build_failed"), nil

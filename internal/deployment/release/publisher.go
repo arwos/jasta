@@ -29,15 +29,16 @@ type sqlBeginner interface {
 }
 
 type Input struct {
-	SiteID       string
-	AppType      config.ApplicationType
-	Config       json.RawMessage
-	SourceKind   string // upload, url, or config for redirect-only releases
-	ArchiveName  string
-	SourceID     string // optional registry source ID; raw URLs and credentials are never persisted
-	StagingDir   string // extracted archive directory; nil for redirect-only sites
-	ReleasesRoot string
-	CreatedAt    time.Time
+	SiteID         string
+	AppType        config.ApplicationType
+	Config         json.RawMessage
+	SourceKind     string // upload, url, or config for redirect-only releases
+	ArchiveName    string
+	SourceID       string // optional registry source ID; raw URLs and credentials are never persisted
+	StagingDir     string // extracted archive directory; nil for redirect-only sites
+	ReleasesRoot   string
+	ContentGroupID *uint32
+	CreatedAt      time.Time
 }
 
 type Result struct {
@@ -185,10 +186,27 @@ func prepareReleaseTree(tmpPath, finalPath, id string, in Input, appConfig any) 
 	if err = writeFile(filepath.Join(tmpPath, "metadata.json"), metadataJSON); err != nil {
 		return nil, err
 	}
+	if in.ContentGroupID != nil {
+		if err = setGroupTree(tmpPath, *in.ContentGroupID); err != nil {
+			return nil, fmt.Errorf("set release content group: %w", err)
+		}
+	}
 	if err = freezeTree(tmpPath); err != nil {
 		return nil, fmt.Errorf("make release immutable: %w", err)
 	}
 	return configJSON, nil
+}
+
+func setGroupTree(root string, groupID uint32) error {
+	return filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+		return os.Chown(path, -1, int(groupID))
+	})
 }
 
 func validateInput(in Input) error {

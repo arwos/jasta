@@ -1,0 +1,6 @@
+# Admin owns mutable state; the web user can traverse only release content.
+d /var/lib/jasta 0750 jasta-admin jasta-content -
+d /var/lib/jasta/releases 0750 jasta-admin jasta-content -
+d /var/lib/jasta/certificates 0750 jasta-admin jasta-admin -
+d /var/lib/jasta/acme-challenges 2750 jasta-admin jasta-challenge -
+d /etc/jasta/nginx 0770 jasta-admin jasta-admin -

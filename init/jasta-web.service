@@ -1,0 +1,41 @@
+[Unit]
+Description=Jasta static site web service
+After=network.target
+
+[Service]
+Type=simple
+User=jasta-web
+Group=jasta-content
+UMask=0027
+ExecStart=/usr/bin/jasta web
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+RuntimeDirectory=jasta
+RuntimeDirectoryMode=0770
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+InaccessiblePaths=/etc/jasta/master.key /etc/jasta/admin.yaml /var/lib/jasta/admin.sqlite /var/lib/jasta/certificates /var/lib/jasta/acme-challenges
+
+[Install]
+WantedBy=multi-user.target

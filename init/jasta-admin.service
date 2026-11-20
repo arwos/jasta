@@ -1,0 +1,42 @@
+[Unit]
+Description=Jasta administration service
+Wants=network-online.target
+After=network-online.target jasta-web.service
+Requires=jasta-web.service
+PartOf=jasta-web.service
+
+[Service]
+Type=simple
+User=jasta-admin
+Group=jasta-admin
+SupplementaryGroups=jasta-content jasta-challenge
+UMask=0077
+ExecStart=/usr/bin/jasta admin
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=20s
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=no
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/jasta /etc/jasta/nginx /run/jasta
+
+[Install]
+WantedBy=multi-user.target

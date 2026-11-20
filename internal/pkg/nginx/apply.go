@@ -72,7 +72,7 @@ func Apply(ctx context.Context, settings Settings, content []byte, runner Runner
 		}
 		return fmt.Errorf("test installed nginx config: %w", err)
 	}
-	if err = runner.Run(ctx, settings.Systemctl, "reload", "nginx"); err != nil {
+	if err = runner.Run(ctx, settings.Systemctl, settings.SystemctlArgs...); err != nil {
 		if rollbackErr := rollback(); rollbackErr != nil {
 			return errors.Join(fmt.Errorf("reload nginx: %w", err), fmt.Errorf("restore previous nginx config: %w", rollbackErr))
 		}

@@ -44,6 +44,23 @@ func TestActivateChangesPairAndIncludesOtherActiveSites(t *testing.T) {
 	if value := setting(t, stmt, revisionSetting); value != "1" {
 		t.Fatalf("active snapshot revision = %q, want 1", value)
 	}
+	loaded, found, err := CurrentSnapshot(context.Background(), stmt)
+	if err != nil || !found || loaded.Revision != received.Revision || len(loaded.Sites) != len(received.Sites) {
+		t.Fatalf("CurrentSnapshot() = revision %d, found %t, err %v; want active revision %d with %d sites", loaded.Revision, found, err, received.Revision, len(received.Sites))
+	}
+	for i := range received.Sites {
+		if loaded.Sites[i].Type != received.Sites[i].Type || string(loaded.Sites[i].Config) != string(received.Sites[i].Config) {
+			t.Fatalf("CurrentSnapshot() site %d differs from the activated snapshot: got %#v want %#v", i, loaded.Sites[i], received.Sites[i])
+		}
+	}
+}
+
+func TestCurrentSnapshotWhenNothingHasBeenActivated(t *testing.T) {
+	stmt := activationDatabase(t)
+	loaded, found, err := CurrentSnapshot(context.Background(), stmt)
+	if err != nil || found || loaded.Revision != 0 || len(loaded.Sites) != 0 {
+		t.Fatalf("CurrentSnapshot() = %#v, found %t, err %v; want no snapshot", loaded, found, err)
+	}
 }
 
 func TestActivateRollsBackWhenWebRejectsSnapshot(t *testing.T) {

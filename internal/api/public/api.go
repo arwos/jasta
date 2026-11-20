@@ -103,6 +103,11 @@ func (a *Api) applySnapshot(next snapshot.Snapshot) error {
 		candidate.Close()
 		return fmt.Errorf("web runtime is stopping")
 	}
+	if candidate.Revision == current.Revision && candidate.Digest == current.Digest {
+		a.mu.Unlock()
+		candidate.Close()
+		return nil
+	}
 	if candidate.Revision <= current.Revision {
 		a.mu.Unlock()
 		candidate.Close()

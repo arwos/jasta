@@ -23,6 +23,51 @@ type sqlBeginner interface {
 
 type ReloadFunc func(context.Context, snapshot.Snapshot) error
 
+// CurrentSnapshot reads the last activated site/config pairs without changing
+// them. It returns found=false when no release has ever been activated.
+func CurrentSnapshot(ctx context.Context, database orm.Stmt) (result snapshot.Snapshot, found bool, err error) {
+	if database == nil {
+		return snapshot.Snapshot{}, false, errors.New("database statement is required")
+	}
+	err = database.CallContext(ctx, "load current active site snapshot", func(ctx context.Context, db orm.DB) error {
+		beginner, ok := db.(sqlBeginner)
+		if !ok {
+			return errors.New("database connection does not support transactions")
+		}
+		tx, beginErr := beginner.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if beginErr != nil {
+			return beginErr
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var count int
+		if beginErr = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM site_activations").Scan(&count); beginErr != nil {
+			return fmt.Errorf("count active site pairs: %w", beginErr)
+		}
+		if count == 0 {
+			return tx.Commit()
+		}
+		var rawRevision string
+		if beginErr = tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", revisionSetting).Scan(&rawRevision); beginErr != nil {
+			return fmt.Errorf("read active snapshot revision: %w", beginErr)
+		}
+		revision, parseErr := strconv.ParseUint(rawRevision, 10, 64)
+		if parseErr != nil || revision == 0 {
+			return fmt.Errorf("invalid active snapshot revision %q", rawRevision)
+		}
+		result, err = activeSnapshot(ctx, tx, revision)
+		if err != nil {
+			return err
+		}
+		found = true
+		return tx.Commit()
+	})
+	if err != nil {
+		return snapshot.Snapshot{}, false, err
+	}
+	return result, found, nil
+}
+
 // Activate updates a site's active release/config pair and asks web to replace
 // its complete in-memory snapshot before committing the database transaction.
 // A rejected or unavailable reload rolls the activation back.

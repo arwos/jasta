@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultConfigPath    = "/etc/nginx/conf.d/jasta.conf"
+	DefaultConfigPath    = "/etc/jasta/nginx/jasta.conf"
 	DefaultChallengeRoot = "/var/lib/jasta/acme-challenges"
 	DefaultPublicProxy   = "127.0.0.1:15432"
 	DefaultAdminProxy    = "127.0.0.1:15433"
@@ -47,6 +47,7 @@ type Settings struct {
 	ConfigPath       string                      `yaml:"config_path"`
 	NginxBinary      string                      `yaml:"nginx_binary"`
 	Systemctl        string                      `yaml:"systemctl_binary"`
+	SystemctlArgs    []string                    `yaml:"systemctl_args"`
 	SiteCertificates map[string]CertificatePaths `yaml:"-"`
 }
 
@@ -77,6 +78,9 @@ func (s *Settings) SetDefaults() {
 	if s.Systemctl == "" {
 		s.Systemctl = DefaultSystemctl
 	}
+	if len(s.SystemctlArgs) == 0 {
+		s.SystemctlArgs = []string{"reload", "nginx"}
+	}
 }
 
 func (s Settings) Validate() error {
@@ -95,6 +99,11 @@ func (s Settings) Validate() error {
 	for name, value := range map[string]string{"challenge root": s.ChallengeRoot, "config path": s.ConfigPath, "nginx binary": s.NginxBinary, "systemctl binary": s.Systemctl} {
 		if !filepath.IsAbs(value) || strings.ContainsAny(value, "\x00\r\n") {
 			return fmt.Errorf("nginx %s must be an absolute path", name)
+		}
+	}
+	for _, value := range s.SystemctlArgs {
+		if value == "" || strings.ContainsAny(value, "\x00\r\n") {
+			return errors.New("nginx systemctl arguments must be non-empty safe values")
 		}
 	}
 	if (s.AdminCertificate == "") != (s.AdminPrivateKey == "") {

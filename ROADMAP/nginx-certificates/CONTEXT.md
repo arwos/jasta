@@ -10,8 +10,8 @@
 
 ## Текущее состояние
 
-- Legacy-команда `jasta nginx`, записывавшая конфиг в `/etc/nginx/sites-available/default`, удалена. F05-T01 добавляет renderer, atomic apply и защищённый `nginx.apply`; output по умолчанию — `/etc/nginx/conf.d/jasta.conf`.
-- `.deb.yaml` зависит от nginx, а текущий `jasta.service` одинарный и работает от `www-data`. F07-T01 должен разделить сервисы и выдать admin Unix-права только на include-файл, challenge root, `nginx -t` и `systemctl reload nginx`.
+- Legacy-команда `jasta nginx`, записывавшая конфиг в `/etc/nginx/sites-available/default`, удалена. F05-T01 добавляет renderer, atomic apply и защищённый `nginx.apply`; F07-T01 меняет generated include на `/etc/jasta/nginx/jasta.conf`. Root-owned shim `/etc/nginx/conf.d/jasta.conf` подключает этот отдельный файл.
+- `.deb.yaml` пока содержит прежний `jasta.service`; F07-T02 должен переключить пакет на новые web/admin units и установить shim, sudoers policy, sysusers и tmpfiles файлы F07-T01.
 - Генератор создаёт HTTP public blocks; admin HTTP блок обслуживает ACME challenge и перенаправляет остальной трафик на HTTPS. Если парные `admin_certificate`/`admin_private_key` заданы в `admin.nginx`, создаётся TLS server block с proxy на localhost admin listener и WebSocket upgrade только на `/ws`; F05-T02/T03 настраивают пути выпущенных сертификатов.
 - `nginx.apply` — защищённый owner JSON-RPC метод с пустыми params. Он группирует `site_domains` из admin SQLite, берёт admin host/listeners/output/cert paths только из root-managed config и не принимает пути, executable или shell strings от клиента.
 - Перед первым apply оператор задаёт `admin.nginx.admin_domain` в `/etc/jasta/admin.yaml`; сертификатные пути остаются пустыми до выпуска сертификата. Из-за этого generated HTTP admin block пока перенаправляет на HTTPS, а TLS proxy block появится после F05-T02/T03.
@@ -27,6 +27,7 @@
 
 ## Ограничения внедрения
 
-- Не выдавать admin универсальные root-права. Установочный пакет должен создавать директории/группы и задавать узкие ACL или systemd/sudo policy.
+- `jasta-admin` остаётся непривилегированным пользователем; sudoers разрешает только точную команду `/usr/bin/systemctl reload nginx`. Admin пишет generated include только в `/etc/jasta/nginx`, а Nginx проверяет его через `nginx -t` до reload.
+- Отдельная группа `jasta-admin` даёт `nginx -t` чтение TLS private keys; `jasta-web` в эту группу не входит. Группа `jasta-challenge` открывает HTTP-01 файлы только для admin и Nginx worker.
 - Challenge-location имеет приоритет перед редиректом HTTP→HTTPS и redirect site rules.
 - Private keys и ACME account key должны входить в ручной backup и не попадать в статусы или логи.

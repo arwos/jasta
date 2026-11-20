@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -29,10 +30,11 @@ func TestCreatePersistsImmutableUnactivatedRelease(t *testing.T) {
 		Domains: []string{"example.test"}, Root: ".", Assets: config.Assets{Path: "assets"},
 		Pages: config.Pages{Index: "index.html", NotFound: "404.html"},
 	})
+	groupID := uint32(os.Getgid())
 
 	result, err := Create(context.Background(), stmt, Input{
 		SiteID: "site-1", AppType: config.SPA, Config: conf, SourceKind: "upload",
-		ArchiveName: "site.zip", StagingDir: stage, ReleasesRoot: releases,
+		ArchiveName: "site.zip", StagingDir: stage, ReleasesRoot: releases, ContentGroupID: &groupID,
 		CreatedAt: time.Unix(1_800_000_000, 0),
 	})
 	if err != nil {
@@ -52,6 +54,16 @@ func TestCreatePersistsImmutableUnactivatedRelease(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(result.ContentPath), "metadata.json")); err != nil {
 		t.Fatalf("release metadata missing: %v", err)
+	}
+	for _, path := range []string{filepath.Dir(result.ContentPath), result.ContentPath, filepath.Join(result.ContentPath, "index.html")} {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatalf("stat release path %s: %v", path, statErr)
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || stat.Gid != groupID {
+			t.Fatalf("release path %s group=%v, want %d", path, info.Sys(), groupID)
+		}
 	}
 	var releasesCount, activationCount int
 	query(t, stmt, "SELECT COUNT(*) FROM releases", &releasesCount)

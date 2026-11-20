@@ -27,6 +27,7 @@ type (
 		ReloadSocket     string         `yaml:"reload_socket"`
 		Nginx            nginx.Settings `yaml:"nginx"`
 		CertificatesRoot string         `yaml:"certificates_root"`
+		ContentGroup     string         `yaml:"content_group"`
 		ACME             ACMEConfig     `yaml:"acme"`
 	}
 	ACMEConfig struct {

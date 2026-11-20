@@ -151,7 +151,7 @@ func (a *Api) uploadArchive(ctx web.Ctx) {
 	}
 	result, err := release.Create(request.Context(), a.database.Tag("master"), release.Input{
 		SiteID: siteID, AppType: appType, Config: configData, SourceKind: "upload", ArchiveName: archiveName,
-		StagingDir: stagingDir, ReleasesRoot: a.conf.ReleasesRoot, CreatedAt: time.Now().UTC(),
+		StagingDir: stagingDir, ReleasesRoot: a.conf.ReleasesRoot, ContentGroupID: a.contentGroupID, CreatedAt: time.Now().UTC(),
 	})
 	if err != nil {
 		failed("build", 70, "build_failed")
