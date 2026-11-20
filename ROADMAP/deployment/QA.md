@@ -46,6 +46,23 @@
 - Ошибка валидации/build не затрагивает активный релиз; атомарное переключение; rollback возвращает точный config snapshot.
 - После публикации и rollback проверять, что web продолжает работать без рестарта, а старые релизы остаются на диске.
 
+### F03-T03 — проверенный релиз
+
+Проверено:
+
+- SPA релиз сохраняет отдельные config/metadata snapshots, неизменяемый контент и не создаёт активацию.
+- Ошибка валидации содержимого не оставляет release directory, snapshot или DB release/activation.
+- Markdown релиз собирает HTML, удаляет source/templates из runtime-релиза и сохраняет готовые файлы.
+- RPA создаёт config-only релиз с `source_kind=config`.
+- Миграция старой SQLite-схемы сохраняет существующий релиз и активацию, принимает `config` и идемпотентна.
+
+Команды и результаты:
+
+- `go test ./...` — пройдено.
+- `go vet ./...` — пройдено.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./internal/deployment/release ./internal/storage` — 0 issues.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./...` — остаются 4 ранее существовавших finding вне задачи: unchecked Close в `internal/api/admin/reload.go` и `internal/snapshot/socket.go`, плюс G302 для socket permissions в `internal/snapshot/socket.go`.
+
 ## Запуски
 
-Остальные сценарии ниже относятся к ещё не реализованным задачам F03-T03—F03-T05.
+Сценарии атомарной активации, reload web и rollback ниже относятся к F03-T04—F03-T05.

@@ -37,3 +37,12 @@
 - IPv4/IPv6 policy отклоняет частные, loopback, link-local, shared, multicast, документационные и незарезервированные для глобальной маршрутизации диапазоны, IPv4-mapped private destinations и IPv6 вне глобального `2000::/3`. Для globally reachable NAT64 `64:ff9b::/96` проверяется встроенный IPv4. Список основан на полях IANA `Globally Reachable` в [IPv4 registry](https://www.iana.org/assignments/iana-ipv4-special-registry) и [IPv6 registry](https://www.iana.org/assignments/iana-ipv6-special-registry); явно указанные глобально доступные исключения внутри специальных сетей разрешаются.
 - `Source` исключён из JSON/YAML сериализации; ошибки сетевого запроса сохраняют только безопасную категорию и URL без пути/query. Загрузка ограничена таймаутом, response headers — 1 MiB, тело — архивным лимитом.
 - Персистентное управление registry credentials и их шифрование остаются на стороне будущих storage/admin команд; `Fetch` получает секреты только в памяти.
+
+## Реализация F03-T03
+
+- `internal/deployment/release.Create` принимает site ID, app type, отдельную JSON-конфигурацию, безопасные метаданные источника и staging-каталог. Конфиг декодируется строго, проходит `Validate`, домены нормализуются и должны совпасть с доменами сайта; для RPA создаётся config-only релиз.
+- Для SPA/MPA/MDA `root` в конфигурации задаётся относительным путём внутри архива; абсолютные пути и выход через `..` запрещены.
+- SPA/MPA получают архивное дерево в `content/`; MDA копирует его во временный `source/`, собирает HTML через `application.BuildMarkdownSite`, затем удаляет исходники и шаблоны из runtime-релиза. Проверяются корень приложения, index и 404. Релиз получает случайный постоянный ID, SHA-256 manifest файлов/ссылок, `config.json` и `metadata.json`.
+- Каталог финализируется rename внутри releases root, содержимое и файлы снимка становятся read-only. Затем одной SQLite-транзакцией создаются config snapshot и `ready` release; запись `site_activations` не меняется. Ошибка БД удаляет подготовленный каталог. Активация остаётся F03-T04.
+- `source_kind=config` добавлен для config-only redirect релизов. При запуске storage migration существующая таблица `releases` перестраивается транзакционно; строки релизов и `site_activations` сохраняются.
+- Registry URL и credentials в metadata не записываются. Для URL-источника сохраняется только безопасный `SourceID`.

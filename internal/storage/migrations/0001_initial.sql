@@ -33,7 +33,7 @@ CREATE TABLE releases (
     id TEXT NOT NULL PRIMARY KEY,
     site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE RESTRICT,
     config_snapshot_id TEXT NOT NULL REFERENCES site_config_snapshots(id) ON DELETE RESTRICT,
-    source_kind TEXT NOT NULL CHECK (source_kind IN ('upload', 'url')),
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('upload', 'url', 'config')),
     archive_name TEXT NOT NULL,
     content_path TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('staged', 'ready', 'failed')),
