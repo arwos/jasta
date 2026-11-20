@@ -11,3 +11,12 @@ http:
 
 admin:
     tag: main
+
+sqlite:
+    - tags: master
+      file: /var/lib/jasta/admin.sqlite
+      cache: private
+      mode: rwc
+      journal: WAL
+      locking_mode: EXCLUSIVE
+      other_params: _foreign_keys=on

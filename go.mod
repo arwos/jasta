@@ -13,6 +13,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.9.2 // indirect
+	github.com/mattn/go-sqlite3 v1.14.47 // indirect
 	github.com/quic-go/quic-go v0.59.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	go.osspkg.com/algorithms v1.7.1 // indirect

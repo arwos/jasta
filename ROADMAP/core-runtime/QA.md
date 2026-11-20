@@ -1,6 +1,6 @@
 # QA F01 — Runtime и управляющее хранилище
 
-F01-T01 выполнена. Остальные проверки F01 запланированы; тестовые наборы не запускались.
+F01-T01 и F01-T02 выполнены. Остальные проверки F01 запланированы; тестовые наборы не запускались.
 
 ## Сценарии
 
@@ -17,4 +17,6 @@ F01-T01 выполнена. Остальные проверки F01 заплан
 - `go build -o /tmp/jasta-f01-t01 ./cmd/jasta` — успешно; Go вывел предупреждение, что sandbox не разрешил создать stat cache под GVM cache.
 - `/tmp/jasta-f01-t01 web --help` и `/tmp/jasta-f01-t01 admin --help` — оба вызова завершились с кодом 0.
 - Runtime smoke с `config/config.dev.yaml` и `config/admin.dev.yaml`: `web` на `127.0.0.1:8080` вернул 200 для Host localhost; `admin` на `127.0.0.1:8090` вернул 404 (публичный handler не зарегистрирован). Первый запуск без разрешения завершился `operation not permitted`; повторный smoke с разрешённым localhost bind прошёл.
+- `go build -o /tmp/jasta-f01-t02 ./cmd/jasta` — успешно; Go вывел предупреждение о read-only GVM stat cache.
+- Runtime migration smoke: `jasta admin` дважды запущен с одной временной SQLite-базой. Оба запуска дошли до HTTP listener; первый создал `0001_initial.sql`, второй пропустил её как применённую. SQLite inspection подтвердил 12 доменных таблиц, `__migrations__` и одну запись миграции.
 - Полный тестовый набор и lint не запускались.

@@ -33,3 +33,10 @@
 - При отсутствии `--config` web использует `/etc/jasta/config.yaml`, admin — `/etc/jasta/admin.yaml`; production и dev config-файлы разделены. Оба admin-примера слушают `127.0.0.1`.
 - Goppy server pool требует tag `main`, поэтому отдельный admin config использует tag `main`, а `admin.tag` указывает на него.
 - Runtime smoke подтвердил web 200 и admin 404 на отдельных dev listeners. Первый запуск в sandbox был запрещён политикой bind; повторный запуск с разрешением на localhost прошёл.
+
+## F01-T02 — Реализация
+
+- `internal/storage` подключает Goppy ORM и SQLite migrations только через `api.AdminPlugins`; публичная сборка не включает SQLite plugin.
+- Первая встроенная миграция создаёт `settings`, `sites`, `site_domains`, `site_config_snapshots`, `releases`, `site_activations`, `registry_sources`, `owners`, `owner_recovery_codes`, `auth_sessions`, `jobs` и `certificates`, плюс необходимые индексы и ограничения.
+- Admin config задаёт `/var/lib/jasta/admin.sqlite`, WAL, exclusive lock и foreign keys; dev config использует отдельную временную базу.
+- В проект добавлен точный `github.com/mattn/go-sqlite3` v1.14.47, закреплённый в Goppy v3.2.3. Другие зависимости не обновлялись.
