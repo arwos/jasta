@@ -18,6 +18,25 @@
 - `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./internal/pkg/archive` — 0 issues.
 - `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./...` — блокируют 4 существующих finding вне archive: unchecked Close в `internal/api/admin/reload.go` и `internal/snapshot/socket.go`, а также G302 для socket permissions в `internal/snapshot/socket.go`.
 
+## F03-T02 — HTTPS-источники
+
+Проверено unit-тестами с подставными DNS-ответами, dialer и HTTP transport:
+
+- HTTPS only, неверные порты, URL userinfo/fragment, scoped IPv6 и нестандартные IPv4 формы отклоняются.
+- Loopback/private/shared/link-local/multicast/documentation/reserved IPv4/IPv6 и IPv4-mapped private destinations отклоняются; внешние IPv4/IPv6 допускаются.
+- При смешанном DNS-ответе public+private отклоняется весь хост. Симуляция DNS rebinding (публичный ответ при первичной проверке, loopback при DialContext) блокирует соединение до dial.
+- HTTP Basic/Bearer headers формируются для исходного registry, query URL сохраняется в запросе; после cross-host redirect Authorization удаляется. Redirect с private DNS и local hostname блокируется.
+- Тело читается потоком с лимитом; ошибки не содержат подписанный query. Source не сериализуется в JSON/YAML.
+- Реальные внешние registry не опрашивались; end-to-end TLS, Basic auth и redirect прошли через локальный HTTPS server на `net.Pipe` с DNS/dialer подменами.
+
+Команды и результаты:
+
+- `go test -race ./internal/pkg/archive` — пройдено.
+- `go test ./...` — пройдено.
+- `go vet ./internal/pkg/archive` — пройдено.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./internal/pkg/archive` — 0 issues.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./...` — блокируют 4 существующих finding вне archive: unchecked Close в `internal/api/admin/reload.go` и `internal/snapshot/socket.go`, а также G302 для socket permissions в `internal/snapshot/socket.go`.
+
 ## Сценарии
 
 - ZIP и TAR.GZ на 100 МБ и граничных значениях; распаковка ровно 1 ГБ и превышение; пустой и повреждённый архив.
@@ -29,4 +48,4 @@
 
 ## Запуски
 
-Остальные сценарии ниже относятся к ещё не реализованным задачам F03-T02—F03-T05.
+Остальные сценарии ниже относятся к ещё не реализованным задачам F03-T03—F03-T05.
