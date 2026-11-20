@@ -9,4 +9,8 @@ http:
     - addr: 127.0.0.1:15432
       tag: main
 
-websites: /etc/jasta/websites
+public:
+    tag: main
+    websites: /etc/jasta/websites
+    throttling: 300
+    reload_socket: /run/jasta/web-reload.sock

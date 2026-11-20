@@ -13,6 +13,7 @@ import (
 	"go.osspkg.com/goppy/v3/plugins/web"
 
 	"go.arwos.org/jasta/internal/api"
+	"go.arwos.org/jasta/internal/api/admin"
 	"go.arwos.org/jasta/internal/pkg/grab"
 	"go.arwos.org/jasta/internal/pkg/nginx"
 )
@@ -37,6 +38,9 @@ func main() {
 	}
 	app.Command(nginx.Command)
 	app.Command(grab.Command)
+	if role == "admin" {
+		app.Command(admin.ReloadCommand)
+	}
 	app.Run()
 }
 

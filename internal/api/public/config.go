@@ -11,9 +11,10 @@ type (
 		Public Config `yaml:"public"`
 	}
 	Config struct {
-		Tag        string `yaml:"tag"`
-		WebSites   string `json:"websites"`
-		Throttling int64  `yaml:"throttling"`
+		Tag          string `yaml:"tag"`
+		WebSites     string `yaml:"websites"`
+		Throttling   int64  `yaml:"throttling"`
+		ReloadSocket string `yaml:"reload_socket"`
 	}
 )
 
@@ -21,6 +22,7 @@ func (c *GroupConfig) Default() {
 	c.Public.WebSites = "/etc/jasta/websites"
 	c.Public.Tag = "main"
 	c.Public.Throttling = 300
+	c.Public.ReloadSocket = "/run/jasta/web-reload.sock"
 }
 
 func (c *GroupConfig) Validate() error {
@@ -32,6 +34,9 @@ func (c *GroupConfig) Validate() error {
 	}
 	if !fs.FileExist(c.Public.WebSites) {
 		return fmt.Errorf("websites folder path is not exist")
+	}
+	if len(c.Public.ReloadSocket) == 0 {
+		return fmt.Errorf("reload socket path is required")
 	}
 	return nil
 }

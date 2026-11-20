@@ -31,14 +31,14 @@ func GetApplicationConfigByType(t ApplicationType) (any, error) {
 }
 
 type Base struct {
-	ApplicationType ApplicationType `yaml:"type"`
+	ApplicationType ApplicationType `yaml:"type" json:"type"`
 }
 
 type SinglePageApplication struct {
-	Domains []string `yaml:"domains"`
-	Root    string   `yaml:"root"`
-	Assets  Assets   `yaml:"assets"`
-	Pages   Pages    `yaml:"pages"`
+	Domains []string `yaml:"domains" json:"domains"`
+	Root    string   `yaml:"root" json:"root"`
+	Assets  Assets   `yaml:"assets" json:"assets"`
+	Pages   Pages    `yaml:"pages" json:"pages"`
 }
 
 func (a SinglePageApplication) GetRoot() string {
@@ -67,10 +67,10 @@ func (a SinglePageApplication) Validate() error {
 }
 
 type MultiPageApplication struct {
-	Domains []string `yaml:"domains"`
-	Root    string   `yaml:"root"`
-	Assets  Assets   `yaml:"assets"`
-	Pages   Pages    `yaml:"pages"`
+	Domains []string `yaml:"domains" json:"domains"`
+	Root    string   `yaml:"root" json:"root"`
+	Assets  Assets   `yaml:"assets" json:"assets"`
+	Pages   Pages    `yaml:"pages" json:"pages"`
 }
 
 func (a MultiPageApplication) GetRoot() string {
@@ -99,11 +99,11 @@ func (a MultiPageApplication) Validate() error {
 }
 
 type MarkdownApplication struct {
-	Source  string   `yaml:"source"`
-	Domains []string `yaml:"domains"`
-	Root    string   `yaml:"root"`
-	Assets  Assets   `yaml:"assets"`
-	Pages   Pages    `yaml:"pages"`
+	Source  string   `yaml:"source" json:"source"`
+	Domains []string `yaml:"domains" json:"domains"`
+	Root    string   `yaml:"root" json:"root"`
+	Assets  Assets   `yaml:"assets" json:"assets"`
+	Pages   Pages    `yaml:"pages" json:"pages"`
 }
 
 func (a MarkdownApplication) GetRoot() string {
@@ -134,7 +134,7 @@ func (a MarkdownApplication) Validate() error {
 }
 
 type RedirectPageApplication struct {
-	Redirects []Redirect `yaml:"redirects"`
+	Redirects []Redirect `yaml:"redirects" json:"redirects"`
 }
 
 func (a RedirectPageApplication) Validate() error {
@@ -152,17 +152,17 @@ func (a RedirectPageApplication) Validate() error {
 }
 
 type Assets struct {
-	Path     string        `yaml:"path"`
-	CacheTTL time.Duration `yaml:"cache_ttl"`
+	Path     string        `yaml:"path" json:"path"`
+	CacheTTL time.Duration `yaml:"cache_ttl" json:"cache_ttl"`
 }
 
 type Pages struct {
-	Index    string `yaml:"index"`
-	NotFound string `yaml:"not_found"`
+	Index    string `yaml:"index" json:"index"`
+	NotFound string `yaml:"not_found" json:"not_found"`
 }
 
 type Redirect struct {
-	Domain  string `yaml:"domain"`
-	UrlFrom string `yaml:"url_from"`
-	UrlTo   string `yaml:"url_to"`
+	Domain  string `yaml:"domain" json:"domain"`
+	UrlFrom string `yaml:"url_from" json:"url_from"`
+	UrlTo   string `yaml:"url_to" json:"url_to"`
 }

@@ -11,4 +11,5 @@ public:
     tag: main
     websites: ./test_data
     throttling: 300
+    reload_socket: /tmp/jasta-web-reload.sock
 
