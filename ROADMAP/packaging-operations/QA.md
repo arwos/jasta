@@ -17,6 +17,7 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 - Upgrade существующей установки сохраняет SQLite, sites, config snapshots, сертификаты и все releases.
 - Remove пакет сохраняет пользовательские данные; действия по удалению данных требуют отдельной явной операции.
 - Backup/restore в чистый staging host: восстановить SQLite и файлы/ключи, запустить оба сервиса, проверить сайт, rollback, owner login и расшифровку registry secret.
+- [x] Добавить пошаговый backup/restore с остановкой сервисов, SQLite sidecars, releases/config snapshots, master/JWT key material, ACME/TLS keys, checksum, owner/group remap и post-restore checks.
 - Проверить сборку amd64/arm64 с CGO toolchain и frontend assets; не считать текущий amd64-only `make build` доказательством обоих пакетов.
 
 ## Запуски
@@ -37,3 +38,5 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 - `systemd-analyze verify` на временных копиях двух units — PASS; в копиях `ExecStart` заменён на `/usr/bin/true`, а межсервисные зависимости убраны. Установленные units и реальный запуск сервисов не проверялись.
 - `systemd-sysusers --dry-run init/jasta.sysusers` и `systemd-tmpfiles --create --dry-run --root=... init/jasta.tmpfiles` разобрали декларации. Fake-root sysusers создал ожидаемые memberships. Применение tmpfiles-владельцев к fake root упёрлось в ограничения uid mapping.
 - `visudo -cf init/jasta-admin.sudoers` — правило разобрано; команда также вывела предупреждение, что `/etc/sudo.conf` в test host принадлежит uid 65534.
+- Проверка примеров backup/restore на чистом staging host не выполнялась; документация не является свидетельством live restore.
+- Backup/restore bash snippets прошли `bash -n`; tar create/list/extract с fixture деревом сохранили тестовый release файл. Это проверка формата/путей, не сервисный restore.

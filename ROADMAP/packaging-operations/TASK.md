@@ -14,7 +14,7 @@
   2. Учитывать CGO toolchain (native либо настроенный cross compiler) и порядок post-install/restart/upgrade/remove.
   **Приёмка:** оба пакета имеют правильную архитектуру и зависимости; upgrade сохраняет БД, конфиги, сертификаты и все релизы.
 
-- [ ] F07-T03 — Документировать ручной backup/restore
+- [x] F07-T03 — Документировать ручной backup/restore
   1. Добавить команды согласованного backup SQLite, configs, releases, JWT/encryption keys, owner recovery state, ACME key и TLS private keys.
   2. Описать восстановление, права файлов, проверку целостности и последующий reload/restart.
   **Приёмка:** по документации восстанавливается тестовая копия на чистом хосте; после восстановления доступны сайты, вход и registry secrets.
