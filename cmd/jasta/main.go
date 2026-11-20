@@ -6,6 +6,9 @@
 package main
 
 import (
+	"os"
+	"strings"
+
 	"go.osspkg.com/goppy/v3"
 	"go.osspkg.com/goppy/v3/plugins/web"
 
@@ -17,12 +20,43 @@ import (
 var Version = "v0.0.0-dev"
 
 func main() {
+	role := serviceRole(os.Args)
+	if len(os.Args) > 1 && (os.Args[1] == "web" || os.Args[1] == "admin") {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+	ensureRoleConfig(role)
+
 	app := goppy.New("jasta", Version, "Gateway for Static Sites")
 	app.Plugins(
 		web.WithServer(),
 	)
-	app.Plugins(api.Plugins)
+	if role == "admin" {
+		app.Plugins(api.AdminPlugins)
+	} else {
+		app.Plugins(api.PublicPlugins)
+	}
 	app.Command(nginx.Command)
 	app.Command(grab.Command)
 	app.Run()
+}
+
+func serviceRole(args []string) string {
+	if len(args) > 1 && args[1] == "admin" {
+		return "admin"
+	}
+	return "web"
+}
+
+func ensureRoleConfig(role string) {
+	for _, arg := range os.Args[1:] {
+		if arg == "--config" || strings.HasPrefix(arg, "--config=") {
+			return
+		}
+	}
+
+	configPath := "/etc/jasta/config.yaml"
+	if role == "admin" {
+		configPath = "/etc/jasta/admin.yaml"
+	}
+	os.Args = append(os.Args, "--config="+configPath)
 }

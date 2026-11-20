@@ -7,7 +7,7 @@ import (
 	"go.arwos.org/jasta/internal/api/public"
 )
 
-var Plugins = plugin.Inject(
-	admin.Plugin,
-	public.Plugin,
+var (
+	AdminPlugins  = plugin.Inject(admin.Plugin)
+	PublicPlugins = plugin.Inject(public.Plugin)
 )

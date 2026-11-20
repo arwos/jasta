@@ -1,0 +1,13 @@
+env: prod
+
+log:
+    file_path: /dev/stdout
+    format: string
+    level: 4
+
+http:
+    - addr: 127.0.0.1:15433
+      tag: main
+
+admin:
+    tag: main

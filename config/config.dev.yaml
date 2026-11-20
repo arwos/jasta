@@ -5,12 +5,7 @@ log:
 
 http:
     - tag: main
-      addr: 0.0.0.0:8080
-    - tag: admin
-      addr: 0.0.0.0:8090
-
-admin:
-    tag: admin
+      addr: 127.0.0.1:8080
 
 public:
     tag: main

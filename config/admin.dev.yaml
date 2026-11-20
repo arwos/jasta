@@ -1,0 +1,11 @@
+log:
+    level: 4
+    file_path: /dev/stdout
+    format: string
+
+http:
+    - tag: main
+      addr: 127.0.0.1:8090
+
+admin:
+    tag: main
