@@ -65,4 +65,24 @@
 
 ## Запуски
 
-Сценарии атомарной активации, reload web и rollback ниже относятся к F03-T04—F03-T05.
+### F03-T04 — атомарная активация
+
+Проверено:
+
+- Замена site activation меняет release и config snapshot вместе, включает остальные активные сайты и увеличивает общую ревизию.
+- Ошибка reload откатывает SQLite-транзакцию: старая пара остаётся активной, счётчик ревизии не меняется.
+- Чужой site/release pair отклоняется до отправки в web.
+- UDS integration test обновляет runtime без перезапуска: запрос к домену переключается со старого на новый контент, соседний активный сайт продолжает работать.
+- В sandbox без разрешения Unix socket listener integration test пропускается; он был отдельно запущен с разрешённым локальным UDS и прошёл.
+
+Команды и результаты:
+
+- `go test ./internal/deployment/activation` — пройдено; UDS integration test отдельно запускался с разрешением на локальный Unix socket и прошёл.
+- `go test ./...` — пройдено.
+- `go vet ./...` — пройдено.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./internal/deployment/activation` — 0 issues.
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-golangci-cache golangci-lint run ./...` — остаются 4 прежних замечания в `internal/api/admin/reload.go` и `internal/snapshot/socket.go`.
+- `go run ./cmd/jasta admin activate --help --config=config/admin.dev.yaml` — зарегистрированы флаги `site`, `release`, `database`, `socket`.
+- `go test -count=1 -run TestActivateReloadsWebWithoutRestartAndServesWholeNewSnapshot ./internal/deployment/activation` с разрешением на Unix socket — пройдено; успешная активация обслуживает новый контент, отказ web на невалидном снимке сохраняет прежний runtime и SQLite pair.
+
+Сценарии истории, ручного rollback и использования диска относятся к F03-T05.

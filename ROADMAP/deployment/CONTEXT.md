@@ -46,3 +46,10 @@
 - Каталог финализируется rename внутри releases root, содержимое и файлы снимка становятся read-only. Затем одной SQLite-транзакцией создаются config snapshot и `ready` release; запись `site_activations` не меняется. Ошибка БД удаляет подготовленный каталог. Активация остаётся F03-T04.
 - `source_kind=config` добавлен для config-only redirect релизов. При запуске storage migration существующая таблица `releases` перестраивается транзакционно; строки релизов и `site_activations` сохраняются.
 - Registry URL и credentials в metadata не записываются. Для URL-источника сохраняется только безопасный `SourceID`.
+
+## Реализация F03-T04
+
+- `internal/deployment/activation.Activate` проверяет принадлежность `ready` релиза сайту и связанному config snapshot; затем внутри SQLite-транзакции формирует новый `site_activations` pair и полный runtime snapshot всех активных сайтов.
+- Монотонная ревизия web снимка хранится в `settings.active_snapshot_revision`. Candidate передаётся callback reload до commit DB; неудачная подготовка/отправка откатывает новую пару и ревизию.
+- `jasta admin activate --site <id> --release <id>` применяет операцию к admin SQLite и отправляет снимок через существующий `/run/jasta/web-reload.sock`. Web полностью валидирует snapshot перед заменой состояния и не перезапускается. Одноразовую CLI-команду запускать без параллельного admin процесса, поскольку SQLite настроена на `EXCLUSIVE` locking.
+- В админском JSON-RPC deployment должен вызывать тот же `activation.Activate`; создание защищённого RPC метода и job-прогресса остаётся F04.

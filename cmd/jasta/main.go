@@ -39,6 +39,7 @@ func main() {
 	app.Command(nginx.Command)
 	app.Command(grab.Command)
 	if role == "admin" {
+		app.Command(admin.ActivateCommand)
 		app.Command(admin.ReloadCommand)
 		app.Command(admin.ImportConfigsCommand)
 	}
