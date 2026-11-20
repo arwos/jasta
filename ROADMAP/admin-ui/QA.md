@@ -1,6 +1,6 @@
 # QA F06 — React-админка
 
-F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified. F06-T05 has mocked browser coverage for source CRUD, secret omission/edit reset, self-signed and Let’s Encrypt actions, progress, and safe ACME failure display; real Nginx/ACME issuance is not exercised. F06-T06 implements cookie-backed session restore and passes frontend/build checks; end-to-end cookie flags, login/refresh rotation, reload restoration, and logout revocation remain unverified.
+F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login has browser rendering coverage; real backend session rotation remains deferred. F06-T03 has mocked-JSON-RPC browser coverage and API-level Go tests. F06-T04 has API-level registry/config-only release coverage and mocked-browser multipart upload/history/rollback coverage; a running admin with a real registry and live WebSocket remains unverified. F06-T05 has mocked browser coverage for source CRUD, secret omission/edit reset, self-signed and Let’s Encrypt actions, progress, and safe ACME failure display; real Nginx/ACME issuance is not exercised. F06-T06 implements cookie-backed session restore and passes frontend/build checks; end-to-end cookie flags, login/refresh rotation, reload restoration, and logout revocation remain unverified. F06-T07 central creation form layout passes frontend lint/build; live browser interaction was not repeated.
 
 ## Сценарии
 
@@ -69,3 +69,6 @@ F06-T01 build/lint/embed serving and Go regressions are checked. F06-T02 login h
 - `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T06).
 - `GOCACHE=/tmp/jasta-go-cache go build -mod=readonly -o /tmp/jasta-auth-cookie-check ./cmd/jasta` — PASS, exit 0; GVM printed a non-fatal warning because its stat cache is read-only (2026-11-20; F06-T06).
 - `git diff --check` — PASS (2026-11-20; F06-T06).
+- `pnpm lint` — PASS, 0 warnings (2026-11-20; F06-T07).
+- `pnpm build` — PASS; TypeScript and Vite production build (2026-11-20; F06-T07).
+- `git diff --check` — PASS (2026-11-20; F06-T07).

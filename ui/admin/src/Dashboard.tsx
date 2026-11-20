@@ -309,7 +309,6 @@ function SitesSection({ sites, selectedSite, selectedID, onSelect, configuration
             {creatingSite ? 'Закрыть' : 'Добавить сайт'}
           </button>
         </div>
-        {creatingSite ? <CreateSiteForm onCancel={() => setCreatingSite(false)} onCreate={onCreate} /> : null}
         <div className="mt-4 space-y-2">
           {sites.map((site) => (
             <button
@@ -329,7 +328,16 @@ function SitesSection({ sites, selectedSite, selectedID, onSelect, configuration
       </section>
 
       <section aria-labelledby="config-title" className="min-w-0">
-        {!selectedSite ? (
+        {creatingSite ? (
+          <CreateSiteForm
+            onCancel={() => setCreatingSite(false)}
+            onCreate={async (name, appType, config) => {
+              const created = await onCreate(name, appType, config)
+              setCreatingSite(false)
+              return created
+            }}
+          />
+        ) : !selectedSite ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">Выберите сайт для просмотра конфигурации.</div>
         ) : (
           <>
@@ -385,27 +393,33 @@ function CreateSiteForm({ onCancel, onCreate }: {
   }
 
   return (
-    <form className="mt-4 rounded-xl border border-blue-200 bg-white p-4 shadow-sm" onSubmit={submit}>
-      <h3 className="font-semibold">Новый сайт</h3>
-      <label className="mt-4 block text-sm font-medium text-slate-800">
-        Название
-        <input className={inputClass} maxLength={128} onChange={(event) => setName(event.target.value)} placeholder="Документация" required value={name} />
-      </label>
-      <label className="mt-4 block text-sm font-medium text-slate-800">
-        Тип приложения
-        <select className={inputClass} onChange={(event) => {
-          const nextType = event.target.value as ApplicationType
-          setAppType(nextType)
-          setDraft(defaultConfig(nextType))
-        }} value={appType}>
-          {(Object.keys(applicationNames) as ApplicationType[]).map((type) => <option key={type} value={type}>{applicationNames[type]}</option>)}
-        </select>
-      </label>
-      <div className="mt-5"><ConfigFields appType={appType} value={draft} onChange={setDraft} /></div>
+    <form className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" onSubmit={submit}>
+      <div>
+        <p className="text-sm font-medium text-blue-700">Новая конфигурация</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight" id="config-title">Создать сайт</h2>
+        <p className="mt-1 text-sm text-slate-500">Укажите название, тип приложения и параметры сайта.</p>
+      </div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-slate-800">
+          Название
+          <input className={inputClass} maxLength={128} onChange={(event) => setName(event.target.value)} placeholder="Документация" required value={name} />
+        </label>
+        <label className="block text-sm font-medium text-slate-800">
+          Тип приложения
+          <select className={inputClass} onChange={(event) => {
+            const nextType = event.target.value as ApplicationType
+            setAppType(nextType)
+            setDraft(defaultConfig(nextType))
+          }} value={appType}>
+            {(Object.keys(applicationNames) as ApplicationType[]).map((type) => <option key={type} value={type}>{applicationNames[type]}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="mt-7"><ConfigFields appType={appType} value={draft} onChange={setDraft} /></div>
       {error ? <p aria-live="polite" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{error}</p> : null}
-      <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
-        <button className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={onCancel} type="button">Отмена</button>
-        <button className="cursor-pointer rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-wait disabled:bg-blue-400" disabled={saving} type="submit">{saving ? 'Создаём…' : 'Создать сайт'}</button>
+      <div className="mt-7 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 pt-5">
+        <button className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={onCancel} type="button">Отмена</button>
+        <button className="cursor-pointer rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-wait disabled:bg-blue-400" disabled={saving} type="submit">{saving ? 'Создаём…' : 'Создать сайт'}</button>
       </div>
     </form>
   )
