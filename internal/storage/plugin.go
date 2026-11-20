@@ -16,12 +16,16 @@ import (
 //go:embed migrations/0001_initial.sql
 var initialMigration string
 
+//go:embed migrations/0002_job_events.sql
+var jobEventsMigration string
+
 func migrations() []orm.Migration {
 	return []orm.Migration{{
 		Tags:    []string{"master"},
 		Dialect: sqlite.Name,
 		Data: map[string]string{
-			"0001_initial.sql": initialMigration,
+			"0001_initial.sql":    initialMigration,
+			"0002_job_events.sql": jobEventsMigration,
 		},
 	}}
 }

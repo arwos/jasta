@@ -8,16 +8,19 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"go.osspkg.com/encrypt/aesgcm"
 	"go.osspkg.com/goppy/v3/plugins/orm"
 	"go.osspkg.com/goppy/v3/plugins/web"
 	"go.osspkg.com/goppy/v3/plugins/web/jsonrpc"
+	"go.osspkg.com/goppy/v3/plugins/ws"
 
 	"go.arwos.org/jasta/internal/auth/session"
 	"go.arwos.org/jasta/internal/deployment/activation"
 	"go.arwos.org/jasta/internal/deployment/release"
+	"go.arwos.org/jasta/internal/jobs"
 	"go.arwos.org/jasta/internal/pkg/config"
 	"go.arwos.org/jasta/internal/snapshot"
 )
@@ -28,6 +31,9 @@ type Api struct {
 	database    orm.ORM
 	auth        *session.Manager
 	secretCodec *aesgcm.Codec
+	wsServer    ws.Server
+	jobs        *jobs.Manager
+	wsClients   sync.Map
 }
 
 func (a *Api) Up() error {
@@ -50,6 +56,14 @@ func (a *Api) Up() error {
 		return fmt.Errorf("web server pool `%s` not found", a.conf.Tag)
 	}
 	route.Use(web.RecoveryMiddleware())
+	manager, err := jobs.New(a.database.Tag("master"))
+	if err != nil {
+		return fmt.Errorf("initialize progress jobs: %w", err)
+	}
+	a.jobs = manager
+	a.wsServer.SetEventHandler(a.authenticateWebSocket, wsAuthEvent)
+	a.wsServer.SetEventHandler(a.subscribeWebSocket, wsSubscribeEvent)
+	route.Get("/ws", a.serveWebSocket)
 	return nil
 }
 

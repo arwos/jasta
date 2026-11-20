@@ -4,20 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"net"
+	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/pquerna/otp/totp"
 	"go.osspkg.com/encrypt/aesgcm"
 	"go.osspkg.com/goppy/v3/plugins/orm"
 	"go.osspkg.com/goppy/v3/plugins/orm/clients/sqlite"
 	"go.osspkg.com/goppy/v3/plugins/web"
+	"go.osspkg.com/goppy/v3/plugins/ws"
 
 	"go.arwos.org/jasta/internal/auth/owner"
 	"go.arwos.org/jasta/internal/auth/session"
+	"go.arwos.org/jasta/internal/jobs"
 	"go.arwos.org/jasta/internal/pkg/archive"
 	"go.arwos.org/jasta/internal/storage"
 )
@@ -55,7 +60,12 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateCode() for login: %v", err)
 	}
-	api := &Api{database: database, auth: manager}
+	api := &Api{database: database, auth: manager, wsServer: ws.NewServer(ctx)}
+	api.jobs, err = jobs.New(database.Tag("master"))
+	if err != nil {
+		t.Fatalf("jobs.New(): %v", err)
+	}
+	t.Cleanup(api.wsServer.CloseAll)
 	loginPayload, err := json.Marshal(loginParams{Password: "long-test-owner-password", SecondFactor: code})
 	if err != nil {
 		t.Fatalf("Marshal login params: %v", err)
@@ -83,6 +93,104 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	if got := result.(map[string]string)["subject"]; got != "owner" {
 		t.Fatalf("auth.me subject=%q, want owner", got)
 	}
+	api.wsServer.SetEventHandler(api.authenticateWebSocket, wsAuthEvent)
+	api.wsServer.SetEventHandler(api.subscribeWebSocket, wsSubscribeEvent)
+	httpListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("loopback HTTP listener is unavailable: %v", err)
+	}
+	httpServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !validWebSocketOrigin(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		api.wsServer.HandlingHTTP(w, r)
+	}))
+	httpServer.Listener = httpListener
+	httpServer.Start()
+	defer httpServer.Close()
+	t.Cleanup(api.wsServer.CloseAll)
+	invalidConn := openAdminWebSocket(t, httpServer.URL)
+	writeAdminWSFrame(t, invalidConn, int(wsAuthEvent), wsAuthParams{AccessToken: "invalid"})
+	if response := readAdminWSFrame(t, invalidConn); response.Error != "unauthorized" {
+		t.Fatalf("invalid WebSocket token response=%#v", response)
+	}
+	_ = invalidConn.Close()
+
+	claims, err := manager.VerifyAccess(pair.AccessToken)
+	if err != nil {
+		t.Fatalf("VerifyAccess(): %v", err)
+	}
+	jobID, _, err := api.jobs.Create(ctx, "deploy", "", claims.SessionID)
+	if err != nil {
+		t.Fatalf("create progress job: %v", err)
+	}
+	conn := openAdminWebSocket(t, httpServer.URL)
+	writeAdminWSFrame(t, conn, int(wsAuthEvent), wsAuthParams{AccessToken: pair.AccessToken})
+	if response := readAdminWSFrame(t, conn); response.ID != int(wsAuthEvent) || response.Error != "" {
+		t.Fatalf("WebSocket auth response=%#v", response)
+	}
+	writeAdminWSFrame(t, conn, int(wsSubscribeEvent), wsSubscribeParams{AfterSequence: 0})
+	initialReplayFrame := readAdminWSFrame(t, conn)
+	var initialReplay jobs.Replay
+	if initialReplayFrame.ID != int(wsSubscribeEvent) || json.Unmarshal(initialReplayFrame.Data, &initialReplay) != nil ||
+		len(initialReplay.Events) != 1 || initialReplay.Events[0].JobID != jobID {
+		t.Fatalf("initial WebSocket replay=%#v payload=%s", initialReplayFrame, initialReplayFrame.Data)
+	}
+	otherCode, err := totp.GenerateCode(enrollment.Secret, time.Now())
+	if err != nil {
+		t.Fatalf("GenerateCode() for second session: %v", err)
+	}
+	otherTokens, err := manager.Login(ctx, database.Tag("master"), "long-test-owner-password", otherCode)
+	if err != nil {
+		t.Fatalf("Login() second owner session: %v", err)
+	}
+	otherConn := openAdminWebSocket(t, httpServer.URL)
+	writeAdminWSFrame(t, otherConn, int(wsAuthEvent), wsAuthParams{AccessToken: otherTokens.AccessToken})
+	if response := readAdminWSFrame(t, otherConn); response.Error != "" {
+		t.Fatalf("second session WebSocket auth response=%#v", response)
+	}
+	writeAdminWSFrame(t, otherConn, int(wsSubscribeEvent), wsSubscribeParams{AfterSequence: 0})
+	otherReplayFrame := readAdminWSFrame(t, otherConn)
+	var otherReplay jobs.Replay
+	if json.Unmarshal(otherReplayFrame.Data, &otherReplay) != nil || len(otherReplay.Events) != 0 {
+		t.Fatalf("different owner session received another session's replay: %#v", otherReplay)
+	}
+	for _, update := range []jobs.Update{
+		{Stage: "download", Status: "running", Progress: 25},
+		{Stage: "build", Status: "running", Progress: 70},
+		{Stage: "publish", Status: "succeeded", Progress: 100},
+	} {
+		if _, err = api.jobs.Publish(ctx, jobID, update); err != nil {
+			t.Fatalf("publish %s progress: %v", update.Stage, err)
+		}
+		frame := readAdminWSFrame(t, conn)
+		var progress jobs.Event
+		if frame.ID != int(wsJobEvent) || json.Unmarshal(frame.Data, &progress) != nil || progress.Stage != update.Stage || progress.Status != update.Status {
+			t.Fatalf("live WebSocket progress frame=%#v payload=%s", frame, frame.Data)
+		}
+	}
+	_ = otherConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, _, err = otherConn.ReadMessage(); err == nil {
+		t.Fatal("different owner session received another session's live progress")
+	} else if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
+		t.Fatalf("reading from foreign session returned %v, want timeout", err)
+	}
+	_ = otherConn.Close()
+	_ = conn.Close()
+
+	reconnected := openAdminWebSocket(t, httpServer.URL)
+	writeAdminWSFrame(t, reconnected, int(wsAuthEvent), wsAuthParams{AccessToken: pair.AccessToken})
+	if response := readAdminWSFrame(t, reconnected); response.Error != "" {
+		t.Fatalf("reconnect auth response=%#v", response)
+	}
+	writeAdminWSFrame(t, reconnected, int(wsSubscribeEvent), wsSubscribeParams{AfterSequence: initialReplay.Cursor})
+	replayFrame := readAdminWSFrame(t, reconnected)
+	var resumed jobs.Replay
+	if replayFrame.ID != int(wsSubscribeEvent) || json.Unmarshal(replayFrame.Data, &resumed) != nil || len(resumed.Events) != 3 ||
+		resumed.Events[2].Status != "succeeded" || resumed.Cursor <= initialReplay.Cursor {
+		t.Fatalf("reconnected WebSocket replay=%#v payload=%s", replayFrame, replayFrame.Data)
+	}
 
 	params, _ := json.Marshal(refreshParams{RefreshToken: pair.RefreshToken})
 	if _, err = api.logout(ctx, web.NewCtx(httptest.NewRecorder(), request), params); err != nil {
@@ -93,6 +201,13 @@ func TestProtectedJSONRPCRequiresActiveOwnerSession(t *testing.T) {
 	if !ok || unauthorizedErr.code != -32001 {
 		t.Fatalf("protected call after logout error=%v, want unauthorized", err)
 	}
+	_ = reconnected.Close()
+	loggedOutConn := openAdminWebSocket(t, httpServer.URL)
+	writeAdminWSFrame(t, loggedOutConn, int(wsAuthEvent), wsAuthParams{AccessToken: pair.AccessToken})
+	if response := readAdminWSFrame(t, loggedOutConn); response.Error != "unauthorized" {
+		t.Fatalf("WebSocket auth after logout response=%#v", response)
+	}
+	_ = loggedOutConn.Close()
 }
 
 func TestDecodeParamsRejectsUnknownAndTrailingValues(t *testing.T) {
@@ -188,4 +303,85 @@ func TestRegistrySourceSecretsAreEncryptedAndOnlyReturnedForFetch(t *testing.T) 
 
 func containsString(value, part string) bool {
 	return strings.Contains(value, part)
+}
+
+func TestWebSocketOriginMustMatchForwardedHostAndScheme(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		origin string
+		host   string
+		proto  string
+		want   bool
+	}{
+		{name: "same-origin forwarded HTTPS", origin: "https://admin.example.test", host: "admin.example.test", proto: "https", want: true},
+		{name: "different host", origin: "https://evil.example.test", host: "admin.example.test", proto: "https"},
+		{name: "scheme mismatch", origin: "http://admin.example.test", host: "admin.example.test", proto: "https"},
+		{name: "missing origin", host: "admin.example.test", proto: "https"},
+		{name: "ambiguous forwarded proto", origin: "https://admin.example.test", host: "admin.example.test", proto: "https,http"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/ws", nil)
+			request.Host = test.host
+			if test.origin != "" {
+				request.Header.Set("Origin", test.origin)
+			}
+			if test.proto != "" {
+				request.Header.Set("X-Forwarded-Proto", test.proto)
+			}
+			if got := validWebSocketOrigin(request); got != test.want {
+				t.Fatalf("validWebSocketOrigin()=%v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+type adminWSFrame struct {
+	ID    int             `json:"e"`
+	Data  json.RawMessage `json:"d"`
+	Error string          `json:"err"`
+}
+
+func openAdminWebSocket(t *testing.T, baseURL string) *websocket.Conn {
+	t.Helper()
+	headers := make(http.Header)
+	headers.Set("Origin", baseURL)
+	conn, response, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(baseURL, "http"), headers)
+	if err != nil {
+		if response != nil {
+			_ = response.Body.Close()
+		}
+		t.Fatalf("open admin WebSocket: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
+}
+
+func writeAdminWSFrame(t *testing.T, conn *websocket.Conn, id int, payload any) {
+	t.Helper()
+	data, err := json.Marshal(struct {
+		ID   int `json:"e"`
+		Data any `json:"d"`
+	}{ID: id, Data: payload})
+	if err != nil {
+		t.Fatalf("marshal admin WebSocket frame: %v", err)
+	}
+	if err = conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		t.Fatalf("write admin WebSocket frame: %v", err)
+	}
+}
+
+func readAdminWSFrame(t *testing.T, conn *websocket.Conn) adminWSFrame {
+	t.Helper()
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatalf("set WebSocket read deadline: %v", err)
+	}
+	_, data, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read admin WebSocket frame: %v", err)
+	}
+	var frame adminWSFrame
+	if err = json.Unmarshal(data, &frame); err != nil {
+		t.Fatalf("decode admin WebSocket frame: %v", err)
+	}
+	return frame
 }

@@ -64,6 +64,14 @@ Registry write methods принимают только HTTPS URL без userinfo
 
 F04-T03 подключает read/validate и lifecycle методов, поддержанных текущими хранилищем и deployment-сервисами, а также полный CRUD registry metadata/credentials. Изменение config активного сайта происходит через создание релиза с config snapshot и его активацию; archive upload в multipart добавляется в F04-T05. Выпуск/продление/удаление сертификатов требуют ACME/Nginx потоков и добавляются в F05. Bootstrap по HTTP намеренно отсутствует.
 
+## F04-T04: прогресс операций через WebSocket
+
+Admin публикует WebSocket endpoint `GET /ws`. Handshake разрешается только при совпадающем `Origin` host и scheme; за Nginx ожидаемый scheme берётся из одиночного `X-Forwarded-Proto`. Одновременно допускается до 128 подключений. Bearer JWT не помещается в URL или handshake headers: клиент отправляет его первым event `e=1` с `{ "access_token": "..." }`, получает `{ "authenticated": true }`, затем подписывается event `e=2` с `{ "after_sequence": 0 }`. Подписка возвращает страницу сохранённого replay `{events, cursor, has_more}` и продолжает live доставку событием `e=100`. Страница ограничена 200 элементами; при `has_more=true` клиент запрашивает следующую страницу, передав последний `cursor`.
+
+Событие содержит монотонный `sequence`, `job_id`, безопасные `kind`/`stage`, `status`, `progress`, необязательный `error_code` и `created_at`. Свободный текст ошибки не публикуется. Состояния job: queued, running, succeeded, failed, cancelled; succeeded требует 100%. История job доступна только сессии, создавшей job, и её refresh-rotation descendants/ancestors; отдельная сессия того же владельца не видит эти события. Session проверяется при auth, subscribe и live send; logout завершает доступ. События хранятся в SQLite таблице `job_events`, а миграция добавляет owner session к `jobs` без потери существующих записей.
+
+`internal/jobs.Manager` предоставляет durable create/publish/replay/live primitives. F04-T04 пока не подключает archive upload/deploy или сертификатные операции к publisher; F04-T05 и F05 должны создавать jobs и публиковать реальные стадии через этот manager. Интеграционный сценарий F04-T04 использует синтетический deploy job.
+
 ## Источники
 
 - [Goppy docs](https://goppy.osspkg.com/) и локальный исходный код закреплённой версии v3.2.3.

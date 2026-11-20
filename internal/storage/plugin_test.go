@@ -93,3 +93,94 @@ func TestMigrateReleaseSourceKindPreservesRowsAndIsIdempotent(t *testing.T) {
 		t.Fatalf("verify migrated schema: %v", err)
 	}
 }
+
+func TestMigrateAddsProgressEventStorageToExistingAdminDatabase(t *testing.T) {
+	ctx := context.Background()
+	database := orm.New(ctx)
+	if err := database.ApplyConfig(sqlite.Name, &sqlite.ConfigGroup{Pool: []sqlite.Config{{
+		Tags: "master", File: filepath.Join(t.TempDir(), "old-admin.sqlite"), Cache: "private", Mode: "rwc",
+		Journal: "WAL", LockingMode: "NORMAL", OtherParams: "_foreign_keys=on",
+	}}}); err != nil {
+		t.Fatalf("ApplyConfig(): %v", err)
+	}
+	t.Cleanup(database.Close)
+	legacy := migrations()[0]
+	legacy.Data = map[string]string{"0001_initial.sql": initialMigration}
+	if err := orm.NewMigrate(database, orm.NewVirtualFS([]orm.Migration{legacy})).Run(ctx); err != nil {
+		t.Fatalf("run old schema migration: %v", err)
+	}
+	if err := database.Tag("master").CallContext(ctx, "seed pre-progress job", func(ctx context.Context, db orm.DB) error {
+		_, err := db.ExecContext(ctx, `INSERT INTO jobs (id, kind, status, stage, progress, site_id, error, created_at)
+			VALUES ('old-job', 'deploy', 'failed', 'build', 25, NULL, 'build_failed', 10)`)
+		return err
+	}); err != nil {
+		t.Fatalf("seed old job: %v", err)
+	}
+	if err := Migrate(ctx, database); err != nil {
+		t.Fatalf("upgrade old admin database: %v", err)
+	}
+	if err := database.Tag("master").CallContext(ctx, "verify progress migration", func(ctx context.Context, db orm.DB) error {
+		rows, err := db.QueryContext(ctx, "PRAGMA table_info(jobs)")
+		if err != nil {
+			return err
+		}
+		ownerSessionColumn := false
+		for rows.Next() {
+			var cid int
+			var name, dataType string
+			var notNull, primaryKey int
+			var defaultValue any
+			if err = rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+				_ = rows.Close()
+				return err
+			}
+			if name == "owner_session_id" {
+				ownerSessionColumn = true
+			}
+		}
+		if err = rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err = rows.Close(); err != nil {
+			return err
+		}
+		if !ownerSessionColumn {
+			return fmt.Errorf("owner_session_id column was not migrated")
+		}
+		rows, err = db.QueryContext(ctx, "SELECT id, status FROM jobs WHERE id = 'old-job'")
+		if err != nil {
+			return err
+		}
+		if !rows.Next() {
+			_ = rows.Close()
+			return fmt.Errorf("pre-existing job was not preserved")
+		}
+		var id, status string
+		if err = rows.Scan(&id, &status); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err = rows.Close(); err != nil {
+			return err
+		}
+		if id != "old-job" || status != "failed" {
+			return fmt.Errorf("pre-existing job changed: %s %s", id, status)
+		}
+		rows, err = db.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='job_events'")
+		if err != nil {
+			return err
+		}
+		if !rows.Next() {
+			_ = rows.Close()
+			return fmt.Errorf("job_events table was not created")
+		}
+		if err = rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		return rows.Close()
+	}); err != nil {
+		t.Fatalf("verify progress migration: %v", err)
+	}
+}

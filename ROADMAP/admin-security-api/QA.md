@@ -16,7 +16,11 @@ F04-T01 и F04-T02 реализованы как CLI и auth primitives. F04-T03
 - [x] Registry create/update/delete проверяют URL/auth credentials; query и Basic/Bearer поля сохраняются только как AES-GCM ciphertext. Внутренний fetch accessor восстанавливает значения, API list их не показывает.
 - [ ] Полный HTTP JSON-RPC transport: валидные/невалидные payload, неизвестная команда и запуск admin listener на Debian сервисе требуют ручного integration прогона.
 - [ ] Config deployment через multipart и certificate issuance остаются за границей F04-T03 и проверяются в F04-T05/F05.
-- WebSocket: разрешённая сессия, неверный Origin, истёкшая сессия, reconnect, job success/failure/cancel.
+- [x] WebSocket integration: неверный JWT отклонён; активная сессия получает queued/download/build/publish/succeeded; reconnect получает durable replay; независимая login session не видит replay/live; logout запрещает повторную WS авторизацию.
+- [x] Origin unit cases: same-origin forwarded HTTPS разрешён; host/scheme mismatch, missing Origin и неоднозначный forwarded proto отклонены.
+- [x] Job manager unit cases: sequence, replay, terminal transition, live subscriber, session-family access и foreign-session isolation.
+- [x] Upgrade старой SQLite схемы с существующей job строкой добавляет owner session и `job_events`, сохраняя существующую запись.
+- F04-T04 тестирует синтетические job события; реальные стадии archive deploy входят в F04-T05, сертификатные операции — в F05.
 - Multipart: файл в пределах лимита, превышение, повреждённый multipart body, отключение клиента посреди загрузки.
 - В логах отсутствуют пароль, TOTP, recovery codes, JWT, registry credentials и подписанный URL.
 
@@ -36,3 +40,11 @@ F04-T01 и F04-T02 реализованы как CLI и auth primitives. F04-T03
 - `go test ./internal/api/admin ./internal/pkg/archive` — PASS; registry source round-trip checked AES-GCM at rest, signed query removal from DB URL, list secrecy, update, and delete (2026-11-20).
 - `go test -race ./internal/api/admin ./internal/pkg/archive ./internal/auth/session` — PASS (2026-11-20).
 - `go vet ./internal/api/admin ./internal/pkg/archive ./internal/auth/session` — PASS (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./...` — PASS (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 ./internal/jobs ./internal/api/admin ./internal/storage ./internal/api ./internal/auth/session` — PASS (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go test -race -count=1 ./internal/jobs ./internal/api/admin ./internal/storage ./internal/auth/session` — PASS (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go test -count=1 -run '^TestProtectedJSONRPCRequiresActiveOwnerSession$' ./internal/api/admin` — PASS with loopback integration enabled (2026-11-20); the default sandbox run skips this test because it disallows binding a loopback listener.
+- `GOCACHE=/tmp/jasta-go-cache go vet ./internal/jobs ./internal/api/admin ./internal/storage ./internal/api` — PASS (2026-11-20).
+- `GOLANGCI_LINT_CACHE=/tmp/jasta-lint-cache golangci-lint run --new ./internal/jobs ./internal/api/admin ./internal/storage ./internal/api` — 0 new issues (2026-11-20).
+- `GOCACHE=/tmp/jasta-go-cache go build -o /tmp/jasta-f04-t04 ./cmd/jasta` — PASS, exit 0; GVM emitted a read-only stat-cache write warning (2026-11-20).
+- `git diff --check` — PASS (2026-11-20).
