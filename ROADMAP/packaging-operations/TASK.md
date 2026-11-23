@@ -18,3 +18,9 @@
   1. Добавить команды согласованного backup SQLite, configs, releases, JWT/encryption keys, owner recovery state, ACME key и TLS private keys.
   2. Описать восстановление, права файлов, проверку целостности и последующий reload/restart.
   **Приёмка:** по документации восстанавливается тестовая копия на чистом хосте; после восстановления доступны сайты, вход и registry secrets.
+
+- [~] F07-T04 — Запускать Jasta в Alpine через Compose
+  1. Собирать admin UI и CGO-бинарник в многоэтапном Alpine build; запускать web/admin отдельными непривилегированными Compose-сервисами.
+  2. В Compose сохранять состояние в `data/` и общий Unix reload socket в `runtime/` под `SVC_PATH`; создавать master key только при первом запуске.
+  3. Оставить Nginx и TLS на хосте; контейнерная конфигурация не должна заявлять об автоматическом `nginx.apply` или reload host Nginx.
+  **Приёмка:** Compose конфигурация корректна, Alpine image собирается, оба сервиса стартуют и восстанавливают snapshot через socket после Compose-managed restart, а данные и ключ переживают перезапуск.

@@ -17,3 +17,6 @@ coverage.out
 *.test
 *.out
 .env
+.env.*
+deploy/data/
+deploy/runtime/

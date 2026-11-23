@@ -1,0 +1,11 @@
+type: spa
+domains:
+    - localhost
+    - 127.0.0.1
+root: /opt/jasta/www
+assets:
+    path: /assets/
+    cache_ttl: 300
+pages:
+    index: index.html
+    not_found: 404.html

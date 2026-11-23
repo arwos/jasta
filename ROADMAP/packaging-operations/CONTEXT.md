@@ -20,6 +20,18 @@
 - `postinst` создаёт отдельные системные users/groups и каталоги, генерирует root-owned `/etc/jasta/master.key` только при его отсутствии, затем запускает web/admin и проверяет/restarts Nginx, чтобы уже запущенный master унаследовал новые supplementary groups для ACME challenge. Runtime-изменения Nginx по-прежнему применяются reload. Upgrade и обычный remove сохраняют SQLite, releases, certificates, конфиги и master key; явный `purge` удаляет `/var/lib/jasta` и master key.
 - Ручные процедуры согласованного backup/restore и remap permissions после миграции UID/GID описаны в `docs/backup-restore.md`; фактический staging restore в этом окружении не выполнялся.
 
+## F07-T04 — Alpine и Compose
+
+- Одна многоэтапная сборка компилирует UI и Go-бинарник с CGO на Alpine; Compose запускает `web` и `admin` отдельными сервисами из одного образа.
+- В репозитории `deploy/data` и `deploy/runtime` — локальные пути разработки. На конечном сервере Compose-файлы лежат прямо в `SVC_PATH`; bind-mounted state — `SVC_PATH/data`, reload socket — `SVC_PATH/runtime`. Web получает state только для чтения; admin владеет SQLite, релизами и ключом.
+- Master key хранится как root-owned `root:jasta-admin` с режимом `0640`: admin остаётся непривилегированным, web не состоит в группе `jasta-admin`, а текущий валидатор требует root ownership и разрешает `0600`/`0640`.
+- Nginx остаётся на хосте и направляет запросы на loopback-порты 15432/15433. В контейнерной конфигурации `nginx.apply` отключён через `/bin/false`; host Nginx и ACME reload не управляются Compose.
+- Контейнеры используют UID 10001 (`jasta-web`) и 10002 (`jasta-admin`); admin дополнительно состоит в `jasta-content`, чтобы подключаться к web reload socket.
+- Compose перезапускает admin после явного Compose-managed restart/update web, чтобы восстановить active snapshot. Автоматический restart контейнера после неожиданного падения web не перезапускает зависимый admin; оператор перезапускает admin после восстановления web.
+- `deploy/Makefile` builds `jasta:local` with `podman compose`, saves it in `docker-archive` format through a unique temporary file, and bundles only `compose.yaml`, `config.yaml`, `admin.yaml`, and `websites/` from `deploy/` into the archive root. It atomically replaces the saved image archive only after a successful save. `install` requires no existing Compose deployment; `update` requires one; `deploy` detects the mode. Each mode copies archives and SHA-256 checksums over SSH, loads and inspects the local image on the target, then runs Compose with `--no-build`. Both services use `pull_policy: never`; podman-compose 1.3.0 translates it to Podman's `--pull never` run option. The command-level `podman compose up --pull never` is unsupported because that provider treats `--pull` as a boolean option.
+- The server has no `deploy/` directory: Compose/config files, persistent state, and runtime socket live under `SVC_PATH`. Updates preserve `SVC_PATH/data` and `SVC_PATH/runtime`. When upgrading from the earlier nested layout, the Makefile stops any old stack containers, moves legacy `data/` and `websites/` into the flat layout, removes the transient legacy runtime directory, and deletes the legacy deployment directory after flattening the updated files. It aborts on old/flat data or websites path collisions rather than merging user state.
+- `SVC_USER`, `SVC_HOST`, and absolute normalized `SVC_PATH` identify the target SSH account and install directory. The remote account must own/be able to write that directory and run Podman; the Makefile checks target architecture against the loaded image before startup.
+
 ## Ограничения и источники
 
 - [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3): CGO_ENABLED=1 и C toolchain необходимы сборке SQLite connector.
