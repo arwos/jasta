@@ -23,9 +23,17 @@ The Makefile saves the image as a Docker-compatible archive, packages only the C
 
 You can create transfer archives without deploying by running `make -C deploy package`. They are written to `build/deploy-transfer/`.
 
-Set `admin_domain` in `deploy/admin.yaml` to the hostname that the host Nginx will forward before deployment. The UI only serves on that configured Host.
+Set `admin.nginx.admin_domain` in the repository's `deploy/admin.yaml` to the hostname that the host Nginx will forward before deployment. The deployed file is `SVC_PATH/admin.yaml`; each `install` or `update` replaces it from the repository copy, so keep the hostname change in `deploy/admin.yaml`. The UI only serves requests whose `Host` matches that value.
 
 The admin entrypoint creates `SVC_PATH/data/master.key` on the first start. It keeps the key on later starts and refuses to generate a replacement if the key is missing while a database, release, or certificate already exists. The key is owned by root, readable by the `jasta-admin` group, and has mode `0640` as required by Jasta. Back up the entire `SVC_PATH/data` directory and preserve the key and its permissions.
+
+After the first deployment has started, create the admin owner from an interactive terminal:
+
+```sh
+make -C deploy owner-bootstrap
+```
+
+This opens an SSH TTY and runs `jasta admin owner-bootstrap` in the running `admin` container as `jasta-admin`, using the mounted database and master key. Scan the displayed TOTP QR code, enter the current code, and save the recovery codes; they are shown only once.
 
 Compose restarts admin after an explicit Compose-managed restart or update of web, so admin restores the active snapshot. If the container runtime restarts web automatically after a crash, it does not restart dependent services; run `podman compose -f /opt/jasta/compose.yaml restart admin` after web is healthy.
 

@@ -46,6 +46,8 @@ F07-T01 добавил отдельные web/admin systemd units, sysusers/tmpf
 - `tar -czf /tmp/jasta-flat-deploy.tar.gz -C deploy compose.yaml config.yaml admin.yaml websites` и `tar -tzf /tmp/jasta-flat-deploy.tar.gz` — PASS: список архива начинается с `compose.yaml`, `config.yaml`, `admin.yaml`, `websites/`; верхнего каталога `deploy/` и state-каталогов нет.
 - `python3 -c 'import yaml; print(yaml.safe_load(open("deploy/compose.yaml")))'` — PASS: обновлённый Compose YAML разобран; provider schema/runtime не проверялись.
 - `make -C deploy check-vars SVC_USER=jasta SVC_HOST=server.example.com SVC_PATH='/opt/jasta;touch /tmp/nope'` — PASS: rejected unsafe path with exit code 2 before any transfer.
+- `podman-compose exec --help` — PASS: installed provider supports selecting the exec user and allocates a pseudo-TTY by default.
+- `make -C deploy -n owner-bootstrap SVC_USER=jasta SVC_HOST=server.example.com SVC_PATH=/opt/jasta` — PASS: dry-run includes forced SSH TTY and runs `owner-bootstrap` in the Compose `admin` service as `jasta-admin` with the mounted database/key paths; no remote command was executed.
 - `git diff --check` — PASS.
 - Actual `make -C deploy deploy` was not run: this environment's Podman runtime cannot initialize because its runtime directory is read-only. Image save/load and remote deployment remain unverified.
 - F07-T04 остаётся частично проверенной до запуска Compose schema/build/runtime checks на рабочем Docker или Podman host.

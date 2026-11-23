@@ -20,7 +20,7 @@ SVC_PATH ?=
 DEPLOY_MODE ?= auto
 export SVC_USER SVC_HOST SVC_PATH DEPLOY_MODE
 
-.PHONY: help check-vars image package transfer remote-deploy install update deploy
+.PHONY: help check-vars image package transfer remote-deploy install update deploy owner-bootstrap
 
 help:
 	@printf '%s\n' \
@@ -28,8 +28,9 @@ help:
 		'make -C deploy package    Save the image and deployment files under build/deploy-transfer' \
 		'make -C deploy install SVC_USER=... SVC_HOST=... SVC_PATH=/absolute/path' \
 		'make -C deploy update  SVC_USER=... SVC_HOST=... SVC_PATH=/absolute/path' \
-		'make -C deploy deploy SVC_USER=... SVC_HOST=... SVC_PATH=/absolute/path' \
-		'                            Auto-detect first install or update'
+		'make -C deploy deploy SVC_USER=... SVC_HOST=... SVC_PATH=/absolute/path (auto-detect mode)' \
+		'make -C deploy owner-bootstrap SVC_USER=... SVC_HOST=... SVC_PATH=/absolute/path' \
+		'                            Interactively create the initial admin owner'
 
 check-vars:
 	: "$${SVC_USER:?SVC_USER is required}"
@@ -165,3 +166,7 @@ update:
 	$(MAKE) --no-print-directory DEPLOY_MODE=update remote-deploy
 
 deploy: remote-deploy
+
+owner-bootstrap: check-vars
+	ssh -tt "$$SVC_USER@$$SVC_HOST" \
+		"cd '$$SVC_PATH' && podman compose -f compose.yaml exec --user jasta-admin admin /usr/local/bin/jasta admin --config=/etc/jasta/admin.yaml owner-bootstrap --database=/var/lib/jasta/admin.sqlite --key-file=/var/lib/jasta/master.key"
