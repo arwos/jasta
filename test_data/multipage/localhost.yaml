@@ -1,6 +1,10 @@
+type: mpa
 domains:
   - localhost
 root: ./
-page404: 404.html
-assets_folder: /assets/
-single: false
+pages:
+  index: index.html
+  not_found: 404.html
+assets:
+  path: /assets
+  cache_ttl: 3600

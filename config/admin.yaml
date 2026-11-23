@@ -1,0 +1,46 @@
+env: prod
+
+log:
+    file_path: /var/log/jasta.log
+    format: string
+    level: 2
+
+http:
+    - addr: 127.0.0.1:15433
+      tag: main
+
+admin:
+    tag: main
+    archive:
+        max_archive_bytes: 104857600
+        max_unpacked_bytes: 1073741824
+        max_entries: 100000
+    certificates_root: /var/lib/jasta/certificates
+    content_group: jasta-content
+    acme:
+        directory_url: https://acme-v02.api.letsencrypt.org/directory
+        contact_email: ""
+        accept_terms: false
+    nginx:
+        admin_domain: ""
+        config_path: /etc/jasta/nginx/jasta.conf
+        systemctl_binary: /usr/bin/sudo
+        systemctl_args:
+            - --
+            - /usr/bin/systemctl
+            - reload
+            - nginx
+        challenge_root: /var/lib/jasta/acme-challenges
+        public_proxy: 127.0.0.1:15432
+        admin_proxy: 127.0.0.1:15433
+        admin_certificate: ""
+        admin_private_key: ""
+
+sqlite:
+    - tags: master
+      file: /var/lib/jasta/admin.sqlite
+      cache: private
+      mode: rwc
+      journal: WAL
+      locking_mode: NORMAL
+      other_params: _foreign_keys=on

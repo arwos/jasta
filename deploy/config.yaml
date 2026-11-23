@@ -1,0 +1,16 @@
+env: prod
+
+log:
+    file_path: /dev/stdout
+    format: string
+    level: 2
+
+http:
+    - addr: 0.0.0.0:15432
+      tag: main
+
+public:
+    tag: main
+    websites: /etc/jasta/websites
+    throttling: 300
+    reload_socket: /run/jasta/web-reload.sock

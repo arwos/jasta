@@ -1,6 +1,11 @@
+type: spa
 domains:
   - 127.0.0.1
 root: ./
-page404: 404.html
-assets_folder: /assets/
-single: true
+pages:
+  index: index.html
+  not_found: 404.html
+assets:
+  path: /assets
+  cache_ttl: 3600
+

@@ -1,0 +1,46 @@
+name: jasta
+
+services:
+  web:
+    image: jasta:local
+    pull_policy: never
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["web"]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:15432:15432"
+    volumes:
+      - ./config.yaml:/etc/jasta/config.yaml:ro
+      - ./websites:/etc/jasta/websites:ro
+      - ./data:/var/lib/jasta:ro
+      - ./runtime:/run/jasta
+
+  admin:
+    image: jasta:local
+    pull_policy: never
+    command: ["admin"]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    depends_on:
+      web:
+        condition: service_started
+        restart: true
+    ports:
+      - "127.0.0.1:15433:15433"
+    volumes:
+      - ./admin.yaml:/etc/jasta/admin.yaml:ro
+      - ./data:/var/lib/jasta
+      - ./runtime:/run/jasta

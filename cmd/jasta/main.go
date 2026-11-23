@@ -6,24 +6,65 @@
 package main
 
 import (
-	"go.osspkg.com/goppy/v2"
-	"go.osspkg.com/goppy/v2/web"
+	"os"
+	"strings"
 
-	"go.arwos.org/jasta/internal/command"
-	"go.arwos.org/jasta/internal/jasta"
+	"go.osspkg.com/goppy/v3"
+	"go.osspkg.com/goppy/v3/plugins/web"
+
+	"go.arwos.org/jasta/internal/api"
+	"go.arwos.org/jasta/internal/api/admin"
+	"go.arwos.org/jasta/internal/pkg/grab"
 )
 
 var Version = "v0.0.0-dev"
 
 func main() {
-	app := goppy.New("jasta", Version, "Gateway for static sites")
+	role := serviceRole(os.Args)
+	if len(os.Args) > 1 && (os.Args[1] == "web" || os.Args[1] == "admin") {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+	ensureRoleConfig(role)
+
+	app := goppy.New("jasta", Version, "Gateway for Static Sites")
 	app.Plugins(
 		web.WithServer(),
 	)
-	app.Plugins(
-		jasta.Plugins...,
-	)
-	app.Command("nginx", command.InstallNginxConfig)
-	app.Command("prerender", command.PreRenderStaticWebsites)
+	if role == "admin" {
+		app.Plugins(api.AdminPlugins)
+	} else {
+		app.Plugins(api.PublicPlugins)
+	}
+	app.Command(grab.Command)
+	if role == "admin" {
+		app.Command(admin.ActivateCommand)
+		app.Command(admin.HistoryCommand)
+		app.Command(admin.RollbackCommand)
+		app.Command(admin.ReloadCommand)
+		app.Command(admin.ImportConfigsCommand)
+		app.Command(admin.OwnerBootstrapCommand)
+		app.Command(admin.OwnerResetCommand)
+	}
 	app.Run()
+}
+
+func serviceRole(args []string) string {
+	if len(args) > 1 && args[1] == "admin" {
+		return "admin"
+	}
+	return "web"
+}
+
+func ensureRoleConfig(role string) {
+	for _, arg := range os.Args[1:] {
+		if arg == "--config" || strings.HasPrefix(arg, "--config=") {
+			return
+		}
+	}
+
+	configPath := "/etc/jasta/config.yaml"
+	if role == "admin" {
+		configPath = "/etc/jasta/admin.yaml"
+	}
+	os.Args = append(os.Args, "--config="+configPath)
 }
