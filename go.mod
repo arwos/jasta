@@ -1,11 +1,11 @@
 module go.arwos.org/jasta
 
-go 1.25.3
+go 1.26
 
 require (
 	go.osspkg.com/console v0.3.3
 	go.osspkg.com/do v0.2.1
-	go.osspkg.com/events v0.3.0
+	go.osspkg.com/events v0.3.1
 	go.osspkg.com/goppy/v2 v2.4.6
 	go.osspkg.com/ioutils v0.7.3
 	go.osspkg.com/logx v0.6.0
